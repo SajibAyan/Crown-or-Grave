@@ -15,6 +15,7 @@ export type Player = {
   safeX: number; safeY: number; teleportAt: number; teleportX: number; teleportY: number;
   copies: number[]; selectedCopy: number; cycleCooldown: number; kills: number; bot: boolean;
   eggX: number; eggY: number; visible: boolean;
+  mirrorUntil: number; chainTarget: string | null;
 }
 export type Projectile = { id: number; owner: string; x: number; y: number; vx: number; vy: number; life: number }
 export type Effect = { x: number; y: number; radius: number; until: number; kind: string; owner: string }

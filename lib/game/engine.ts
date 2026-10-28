@@ -6,13 +6,23 @@ export class PracticeEngine {
   private projectileId = 0
   private previousInputs = new Map<string, GameInput>()
   constructor(name: string) {
-    const powers = Array.from({ length: 10 }, (_, i) => i)
+    const powers = Array.from({ length: 15 }, (_, i) => i)
     for (let i = powers.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [powers[i], powers[j]] = [powers[j], powers[i]] }
-    const names = [name, 'Ash', 'Rune', 'Moss', 'Ember']
+    // Single player bots are named "Computer"
+    const names = [name, 'Computer', 'Computer', 'Computer', 'Computer']
     const players = names.map((n, i): Player => {
       const angle = -Math.PI / 2 + i * Math.PI * 2 / 5
       const x = 500 + Math.cos(angle) * 300, y = 350 + Math.sin(angle) * 270
-      return { id: i === 0 ? 'you' : `bot-${i}`, name: n, x, y, hp: 100, ability: powers[i], hatched: false, alive: true, cooldown: 0, shotCooldown: 0, speedUntil: 0, invisibleUntil: 0, frozenUntil: 0, revealUntil: 0, shieldUntil: 0, invulnerableUntil: 0, revives: 0, rewindUsed: false, safeX: x, safeY: y, teleportAt: 0, teleportX: 0, teleportY: 0, copies: [], selectedCopy: -1, cycleCooldown: 0, kills: 0, bot: i > 0, eggX: x - Math.cos(angle) * 34, eggY: y - Math.sin(angle) * 34, visible: true }
+      return {
+        id: i === 0 ? 'you' : `bot-${i}`, name: n, x, y, hp: 100, ability: powers[i],
+        hatched: false, alive: true, cooldown: 0, shotCooldown: 0, speedUntil: 0,
+        invisibleUntil: 0, frozenUntil: 0, revealUntil: 0, shieldUntil: 0,
+        invulnerableUntil: 0, revives: 0, rewindUsed: false, safeX: x, safeY: y,
+        teleportAt: 0, teleportX: 0, teleportY: 0, copies: [], selectedCopy: -1,
+        cycleCooldown: 0, kills: 0, bot: i > 0,
+        eggX: x - Math.cos(angle) * 34, eggY: y - Math.sin(angle) * 34,
+        visible: true, mirrorUntil: 0, chainTarget: null,
+      }
     })
     this.state = { time: 0, status: 'playing', players, projectiles: [], effects: [], winner: null, radius: 510, events: ['Five enter. One remains.'] }
   }
@@ -27,7 +37,9 @@ export class PracticeEngine {
     s.effects = s.effects.filter(e => e.until > s.time)
     for (const p of s.players) {
       if (!p.alive) continue
-      p.cooldown = Math.max(0, p.cooldown - dt); p.shotCooldown = Math.max(0, p.shotCooldown - dt); p.cycleCooldown = Math.max(0, p.cycleCooldown - dt)
+      p.cooldown = Math.max(0, p.cooldown - dt)
+      p.shotCooldown = Math.max(0, p.shotCooldown - dt)
+      p.cycleCooldown = Math.max(0, p.cycleCooldown - dt)
       if (p.teleportAt && s.time >= p.teleportAt) { if (canStand(p.teleportX, p.teleportY)) { p.x = p.teleportX; p.y = p.teleportY } p.teleportAt = 0 }
       const input = p.bot ? this.botInput(p) : human
       const previous = this.previousInputs.get(p.id) ?? emptyInput()
@@ -37,7 +49,7 @@ export class PracticeEngine {
       if (p.frozenUntil <= s.time) {
         const length = Math.hypot(input.dx, input.dy)
         if (length > 0) {
-          const speed = 130 * (p.speedUntil > s.time ? 3.5 : 1) * dt
+          const speed = 130 * (p.speedUntil > s.time ? 3.5 : p.invulnerableUntil > s.time && p.ability === 14 ? 2 : 1) * dt
           const nx = p.x + input.dx / Math.max(1, length) * speed, ny = p.y + input.dy / Math.max(1, length) * speed
           if (canStand(nx, p.y)) p.x = nx
           if (canStand(p.x, ny)) p.y = ny
@@ -45,7 +57,9 @@ export class PracticeEngine {
         if (input.hatch && !p.hatched && distance(p, { x: p.eggX, y: p.eggY }) < 85) { p.hatched = true; this.event(`${p.name} awakened a power.`); s.effects.push({ x: p.x, y: p.y, radius: 80, until: s.time + .7, kind: 'hatch', owner: p.id }) }
         if (cyclePressed && p.copies.length && p.cycleCooldown <= 0) { p.selectedCopy = p.selectedCopy >= p.copies.length - 1 ? -1 : p.selectedCopy + 1; p.cycleCooldown = .3 }
         if (abilityPressed && p.hatched && p.cooldown <= 0) this.activate(p, input)
+        // auto-triggers
         if (p.hatched && p.ability === 9 && p.hp <= 50 && p.cooldown <= 0) this.activate(p, input)
+        if (p.hatched && p.ability === 14 && p.hp <= 25 && p.cooldown <= 0 && abilityPressed) this.activate(p, input)
         if (input.attack && p.shotCooldown <= 0) {
           const angle = Math.atan2(input.aimY - p.y, input.aimX - p.x)
           s.projectiles.push({ id: this.projectileId++, owner: p.id, x: p.x + Math.cos(angle) * 20, y: p.y + Math.sin(angle) * 20, vx: Math.cos(angle) * 420, vy: Math.sin(angle) * 420, life: 1.6 })
@@ -67,7 +81,7 @@ export class PracticeEngine {
       return true
     })
     const alive = s.players.filter(p => p.alive)
-    if (alive.length <= 1) { s.status = 'finished'; s.winner = alive[0]?.id ?? null; this.event(alive[0] ? `${alive[0].name} is the last light.` : 'The grove claims everyone.') }
+    if (alive.length <= 1) { s.status = 'finished'; s.winner = alive[0]?.id ?? null; this.event(alive[0] ? `${alive[0].name} claims the crown.` : 'The grove claims everyone.') }
   }
   activate(p: Player, input: GameInput) {
     const s = this.state
@@ -95,6 +109,55 @@ export class PracticeEngine {
       case 7: p.hp = Math.min(100, p.hp + 15); break
       case 8: p.hp = Math.min(100, p.hp + 50); break
       case 9: p.shieldUntil = s.time + 3; break
+      // --- NEW ABILITIES ---
+      case 10: { // Earthquake
+        const nearby = s.players.filter(o => o.id !== p.id && o.alive && distance(p, o) < 200)
+        nearby.forEach(o => {
+          const ang = Math.atan2(o.y - p.y, o.x - p.x)
+          const pushDist = 90
+          const nx = o.x + Math.cos(ang) * pushDist, ny = o.y + Math.sin(ang) * pushDist
+          if (canStand(nx, ny)) { o.x = nx; o.y = ny }
+          o.frozenUntil = s.time + 1.5
+        })
+        s.effects.push({ x: p.x, y: p.y, radius: 200, until: s.time + 0.8, kind: 'quake', owner: p.id })
+        this.event(`${p.name} shook the earth!`)
+        break
+      }
+      case 11: { // Blood Pact
+        if (p.hp <= 30) { p.cooldown = 0; return } // don't kill self
+        const bpTarget = s.players.filter(o => o.id !== p.id && o.alive && o.visible && distance(p, o) < 300).sort((a, b) => distance(p, a) - distance(p, b))[0]
+        if (!bpTarget) { p.cooldown = 0; return }
+        p.hp -= 30
+        this.damage(bpTarget, 60, p.id)
+        s.effects.push({ x: p.x, y: p.y, radius: 30, until: s.time + 0.6, kind: 'cast', owner: p.id })
+        this.event(`${p.name} made a blood pact!`)
+        break
+      }
+      case 12: { // Mirror Image
+        p.mirrorUntil = s.time + 6
+        s.effects.push({ x: p.x, y: p.y, radius: 60, until: s.time + 0.5, kind: 'cast', owner: p.id })
+        this.event(`${p.name} created a mirror image.`)
+        break
+      }
+      case 13: { // Chain Lightning
+        const sorted = s.players.filter(o => o.id !== p.id && o.alive && o.visible && distance(p, o) < 250).sort((a, b) => distance(p, a) - distance(p, b))
+        const damages = [25, 20, 15]
+        sorted.slice(0, 3).forEach((o, idx) => {
+          this.damage(o, damages[idx], p.id)
+          s.effects.push({ x: o.x, y: o.y, radius: 25, until: s.time + 0.4, kind: 'cast', owner: p.id })
+        })
+        if (sorted.length === 0) { p.cooldown = 0; return }
+        this.event(`${p.name} called down chain lightning!`)
+        break
+      }
+      case 14: { // Last Stand
+        if (p.hp > 25) { p.cooldown = 0; return }
+        p.invulnerableUntil = s.time + 3
+        p.speedUntil = s.time + 3
+        s.effects.push({ x: p.x, y: p.y, radius: 50, until: s.time + 0.8, kind: 'cast', owner: p.id })
+        this.event(`${p.name} makes their last stand!`)
+        break
+      }
     }
     s.effects.push({ x: p.x, y: p.y, radius: 40, until: s.time + .5, kind: 'cast', owner: p.id })
   }
