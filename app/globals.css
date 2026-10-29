@@ -240,12 +240,12 @@
 .colour-preview-btn:hover { transform: scale(1.18); border-color: #a0b87a; }
 
 /* ── Inline Colour Picker ── */
-.inline-colour-picker { background: #d8d8c8; border: 1px solid #b0b09a; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 14px; margin-bottom: 4px; }
+.inline-colour-picker { background: linear-gradient(to bottom, #2d1b69, #1a3a8a, #0e7fa0, #00c9b0); border: 1px solid #1a5a8a; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 14px; margin-bottom: 4px; }
 .icp-header { display: flex; align-items: center; gap: 12px; }
 .icp-preview { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #4a5a32; flex-shrink: 0; transition: background .2s, box-shadow .2s; }
-.icp-label { font-size: 8px; letter-spacing: 2.5px; color: #2a3a1a; }
+.icp-label { font-size: 8px; letter-spacing: 2.5px; color: #c0e8f8; }
 .icp-section { display: flex; flex-direction: column; gap: 7px; }
-.icp-section-label { font-size: 7px; letter-spacing: 2px; color: #3a4a2a; }
+.icp-section-label { font-size: 7px; letter-spacing: 2px; color: #a0d4e8; }
 .icp-grid { display: flex; flex-wrap: wrap; gap: 7px; }
 .icp-swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform .12s, border-color .12s; flex-shrink: 0; position: relative; display: flex; align-items: center; justify-content: center; }
 .icp-swatch:hover { transform: scale(1.2); border-color: #a0b87a80; }
@@ -257,7 +257,7 @@
 .icp-question { width: 16px; height: 16px; border-radius: 50%; background: #3a4e28; border: 1px solid #5a6e44; color: #8aa06a; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s; font-weight: 700; line-height: 1; }
 .icp-question:hover { background: #4e6636; color: #c8d8a8; }
 .icp-tooltip { font-size: 10px; color: #e2d09a; background: #253318; border: 1px solid #4a5e30; border-radius: 7px; padding: 9px 12px; line-height: 1.6; }
-.icp-mp-note { font-size: 9px; color: #3a4e28; }
+.icp-mp-note { font-size: 9px; color: #a0d4e8; }
 .icp-mp-note strong { color: #a0b87a; }
 
 /* ── Colour preview dot in topbar ── */
