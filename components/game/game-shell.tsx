@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { ArrowRight, ArrowUpRight, BookOpen, ChevronRight, CircleHelp, Crosshair, Crown, Egg, Flame, Gamepad2, Globe2, Headphones, Menu, Play, Plus, Settings2, Shield, Sparkles, Swords, Trophy, UserRound, Users, Volume2, VolumeX, X } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, BookOpen, ChevronRight, CircleHelp, Crosshair, Crown, Egg, Gamepad2, Globe2, Headphones, Menu, Play, Plus, Settings2, Shield, Sparkles, Swords, Trophy, UserRound, Users, Volume2, VolumeX, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AbilityCodex } from './ability-codex'
 import { GameGuide, GameSteps } from './game-guide'
 import { OnlineDialog } from './online-dialog'
-import { ColourPickerScreen, getStoredColour, incrementMpMatches } from './colour-picker'
+import { InlineColourPicker, getStoredColour, incrementMpMatches } from './colour-picker'
 import { cn } from '@/lib/utils'
 import type { GameSession } from '@/lib/game/types'
 
@@ -38,10 +38,7 @@ export function GameShell() {
   const [mobileMenu, setMobileMenu] = useState(false)
   const [session, setSession] = useState<GameSession | null>(null)
   const [ready, setReady] = useState(false)
-  // Colour picker state
-  const [showColourPicker, setShowColourPicker] = useState(false)
   const [playerColour, setPlayerColour] = useState('#00AAFF')
-  const [pendingMode, setPendingMode] = useState<'practice' | 'online' | null>(null)
 
   useEffect(() => {
     setReady(true)
@@ -54,25 +51,11 @@ export function GameShell() {
 
   function navigate(value: Section) { setSection(value); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'instant' }) }
 
-  // Show colour picker before entering any mode
   function startPractice() {
-    setPendingMode('practice')
-    setShowColourPicker(true)
+    setSession({ mode: 'practice', name: name.trim() || 'Wanderer' })
   }
   function startOnline() {
-    setPendingMode('online')
-    setShowColourPicker(true)
-  }
-
-  function onColourConfirmed(colour: string) {
-    setPlayerColour(colour)
-    setShowColourPicker(false)
-    if (pendingMode === 'practice') {
-      setSession({ mode: 'practice', name: name.trim() || 'Wanderer' })
-    } else if (pendingMode === 'online') {
-      setOnlineOpen(true)
-    }
-    setPendingMode(null)
+    setOnlineOpen(true)
   }
 
   function handleOnlineConnected(s: GameSession) {
@@ -80,17 +63,10 @@ export function GameShell() {
     setSession(s)
   }
 
-  if (showColourPicker) {
-    return <>
-      <ColourPickerScreen onConfirm={onColourConfirmed} />
-      <Toaster theme="dark" />
-    </>
-  }
-
   if (session) return <>
     <GameArena session={session} server={server} sound={sound} playerColour={playerColour}
       onExit={() => { if (session.mode === 'online') session.socket.close(); setSession(null) }}
-      onReplay={startPractice}
+      onReplay={() => setSession({ mode: 'practice', name: name.trim() || 'Wanderer' })}
     />
     <Toaster theme="dark" />
   </>
@@ -142,9 +118,8 @@ export function GameShell() {
         <div className="topbar-right">
           <span className="practice-status"><span className="live-dot" /> Practice ready</span>
           <span className="topbar-divider" />
-          {/* Colour preview dot */}
-          <button className="colour-preview-btn" onClick={startPractice} title="Change ball colour" style={{ background: playerColour }} />
-          <Button variant="ghost" size="icon" aria-label={sound ? 'Mute game sounds' : 'Enable game sounds'} onClick={() => setSound(!sound)}>{sound ? <Volume2 /> : <VolumeX />}</Button>
+          <div className="colour-preview-dot" style={{ background: playerColour, boxShadow: `0 0 8px ${playerColour}90` }} title="Ball colour" />
+          <Button variant="ghost" size="icon" aria-label={sound ? 'Mute' : 'Enable sound'} onClick={() => setSound(!sound)}>{sound ? <Volume2 /> : <VolumeX />}</Button>
           <span className="header-avatar">{(name.trim() || 'W')[0].toUpperCase()}</span>
         </div>
       </header>
@@ -183,6 +158,10 @@ export function GameShell() {
               <Field><FieldLabel htmlFor="player-name">YOUR NAME</FieldLabel>
                 <div className="name-input-wrap"><UserRound size={15} /><Input id="player-name" value={name} maxLength={18} onChange={e => setName(e.target.value)} placeholder="Enter your name" /></div>
               </Field>
+
+              {/* Inline colour picker — always visible */}
+              <InlineColourPicker value={playerColour} onChange={setPlayerColour} />
+
               <Tabs defaultValue="practice" className="play-tabs">
                 <TabsList className="w-full">
                   <TabsTrigger value="practice"><Gamepad2 size={14} />Solo practice</TabsTrigger>
@@ -199,7 +178,7 @@ export function GameShell() {
                     <span>Ability<strong>Random &amp; unique <Sparkles size={11} /></strong></span>
                   </div>
                   <Button className="enter-button w-full" size="lg" onClick={startPractice} disabled={!ready}>
-                    <Play fill="currentColor" data-icon="inline-start" />Choose colour &amp; play<ArrowRight data-icon="inline-end" />
+                    <Play fill="currentColor" data-icon="inline-start" />Enter the grove<ArrowRight data-icon="inline-end" />
                   </Button>
                   <p className="play-note"><Shield size={11} /> No download. No account. Just play.</p>
                 </TabsContent>
@@ -210,11 +189,11 @@ export function GameShell() {
                   </div>
                   <div className="match-details">
                     <span>Mode<strong>Online multiplayer</strong></span>
-                    <span>Players<strong>5 friends</strong></span>
+                    <span>Players<strong>5 friends — you need 4 more to start</strong></span>
                     <span>Connection<strong>C# game server</strong></span>
                   </div>
                   <Button className="enter-button w-full" size="lg" onClick={startOnline}>
-                    <Plus data-icon="inline-start" />Choose colour &amp; play online<ArrowRight data-icon="inline-end" />
+                    <Plus data-icon="inline-start" />Create online room<ArrowRight data-icon="inline-end" />
                   </Button>
                   <p className="play-note"><Globe2 size={11} /> Requires a hosted game server.</p>
                 </TabsContent>

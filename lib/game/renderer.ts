@@ -166,18 +166,18 @@ export function renderArena(
   t: number,
   playerColour: string
 ) {
-  const scale = Math.min(width / 1000, height / 700)
+  const scale = Math.min(width / 750, height / 525)
   ctx.clearRect(0, 0, width, height)
   const m = mapTheme
 
   ctx.fillStyle = m.bg; ctx.fillRect(0, 0, width, height)
   ctx.save()
-  ctx.translate((width - 1000 * scale) / 2, (height - 700 * scale) / 2)
+  ctx.translate((width - 750 * scale) / 2, (height - 525 * scale) / 2)
   ctx.scale(scale, scale)
 
   // floor
-  ctx.fillStyle = m.floor; ctx.fillRect(0, 0, 1000, 700)
-  for (let x = 0; x < 1000; x += 50) for (let y = 0; y < 700; y += 50) {
+  ctx.fillStyle = m.floor; ctx.fillRect(0, 0, 750, 525)
+  for (let x = 0; x < 750; x += 50) for (let y = 0; y < 525; y += 50) {
     const n = Math.sin(x * .17 + y * .49) * 1000
     ctx.fillStyle = n % 3 > 1 ? m.t1 : m.t2; ctx.fillRect(x + 2, y + 2, 46, 46)
   }
@@ -186,20 +186,20 @@ export function renderArena(
   drawMapDetails(ctx, m, t)
 
   // arena circles
-  circle(ctx, 500, 350, 185, m.floor + '70', '#68724c20')
-  circle(ctx, 500, 350, 145, m.floor + '60', '#69784f30')
-  circle(ctx, 500, 350, 47, m.floor, '#6f775344')
-  ctx.save(); ctx.translate(500, 350); ctx.rotate(Math.PI / 4); ctx.strokeStyle = m.acc + '44'; ctx.lineWidth = 1; ctx.strokeRect(-15, -15, 30, 30); ctx.restore()
+  circle(ctx, 375, 262, 138, m.floor + '70', '#68724c20')
+  circle(ctx, 375, 262, 108, m.floor + '60', '#69784f30')
+  circle(ctx, 375, 262, 35, m.floor, '#6f775344')
+  ctx.save(); ctx.translate(375, 262); ctx.rotate(Math.PI / 4); ctx.strokeStyle = m.acc + '44'; ctx.lineWidth = 1; ctx.strokeRect(-15, -15, 30, 30); ctx.restore()
 
   // walls — new solid style with shadows
   for (const o of obstacles) drawWall(ctx, o, m)
 
   // shrinking ring overlay
   ctx.save()
-  ctx.beginPath(); ctx.rect(-5, -5, 1010, 710); ctx.arc(500, 350, s.radius, 0, Math.PI * 2, true)
+  ctx.beginPath(); ctx.rect(-5, -5, 760, 535); ctx.arc(375, 262, s.radius, 0, Math.PI * 2, true)
   ctx.fillStyle = '#142136bb'; ctx.fill('evenodd'); ctx.restore()
   ctx.setLineDash([9, 9]); ctx.strokeStyle = '#95b6c795'; ctx.lineWidth = 2
-  ctx.beginPath(); ctx.arc(500, 350, s.radius, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([])
+  ctx.beginPath(); ctx.arc(375, 262, s.radius, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([])
 
   const me = s.players.find(p => p.id === you)
 
@@ -278,9 +278,9 @@ export function renderArena(
   }
 
   // vignette
-  const vignette = ctx.createRadialGradient(500, 350, 190, 500, 350, 640)
+  const vignette = ctx.createRadialGradient(375, 262, 142, 375, 262, 480)
   vignette.addColorStop(0, 'transparent'); vignette.addColorStop(1, m.fog + '99')
-  ctx.fillStyle = vignette; ctx.fillRect(0, 0, 1000, 700)
+  ctx.fillStyle = vignette; ctx.fillRect(0, 0, 750, 525)
 
   // map name
   ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left'

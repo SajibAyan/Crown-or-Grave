@@ -238,3 +238,37 @@
 /* ── Colour preview button in topbar ── */
 .colour-preview-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #4a5a32; cursor: pointer; transition: transform .12s, border-color .12s; flex-shrink: 0; }
 .colour-preview-btn:hover { transform: scale(1.18); border-color: #a0b87a; }
+
+/* ── Inline Colour Picker ── */
+.inline-colour-picker { background: #141f0e; border: 1px solid #2d3d1e; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 14px; margin-bottom: 4px; }
+.icp-header { display: flex; align-items: center; gap: 12px; }
+.icp-preview { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #4a5a32; flex-shrink: 0; transition: background .2s, box-shadow .2s; }
+.icp-label { font-size: 8px; letter-spacing: 2.5px; color: #7a9062; }
+.icp-section { display: flex; flex-direction: column; gap: 7px; }
+.icp-section-label { font-size: 7px; letter-spacing: 2px; color: #5a6e44; }
+.icp-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+.icp-swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform .12s, border-color .12s; flex-shrink: 0; position: relative; display: flex; align-items: center; justify-content: center; }
+.icp-swatch:hover { transform: scale(1.2); border-color: #a0b87a80; }
+.icp-selected { border-color: #e2d09a !important; transform: scale(1.18); box-shadow: 0 0 10px #e2d09a60; }
+.icp-locked { opacity: 0.45; cursor: pointer; filter: grayscale(0.6); }
+.icp-locked:hover { opacity: 0.6; }
+.icp-prestige-row { gap: 12px; align-items: center; }
+.icp-prestige-wrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.icp-question { width: 16px; height: 16px; border-radius: 50%; background: #3a4e28; border: 1px solid #5a6e44; color: #8aa06a; font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s; font-weight: 700; line-height: 1; }
+.icp-question:hover { background: #4e6636; color: #c8d8a8; }
+.icp-tooltip { font-size: 10px; color: #e2d09a; background: #253318; border: 1px solid #4a5e30; border-radius: 7px; padding: 9px 12px; line-height: 1.6; }
+.icp-mp-note { font-size: 9px; color: #6a7e52; }
+.icp-mp-note strong { color: #a0b87a; }
+
+/* ── Colour preview dot in topbar ── */
+.colour-preview-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #4a5a3260; flex-shrink: 0; transition: box-shadow .2s; }
+
+/* ── Circular D-pad ── */
+.dpad-ring { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
+.dpad-btn { position: absolute; width: 38px; height: 38px; border: 1px solid #54643b; border-radius: 8px; background: #29391c; color: #c8d8a8; display: flex; align-items: center; justify-content: center; font-size: 12px; touch-action: none; user-select: none; cursor: pointer; transition: background .1s; }
+.dpad-btn:active, .dpad-btn:hover { background: #3d5024; }
+.dpad-up { top: 0; left: 50%; transform: translateX(-50%); }
+.dpad-down { bottom: 0; left: 50%; transform: translateX(-50%); }
+.dpad-left { left: 0; top: 50%; transform: translateY(-50%); }
+.dpad-right { right: 0; top: 50%; transform: translateY(-50%); }
+.dpad-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 32px; height: 32px; border-radius: 50%; background: #1e2c14; border: 1px solid #3a4a28; pointer-events: none; }

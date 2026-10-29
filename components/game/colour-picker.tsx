@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Crown, Lock } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export const RAINBOW_COLOURS = [
@@ -15,123 +14,96 @@ export const DARK_COLOURS = [
   '#1A002B','#001A2B','#2B2B10','#2a2a2a',
 ]
 export const PRESTIGE_COLOURS = [
-  { color: '#CC1111', label: 'CRIMSON', requiredMatches: 1 },
-  { color: '#7B00CC', label: 'SHADOW PURPLE', requiredMatches: 2 },
-  { color: '#111111', label: 'OBSIDIAN', requiredMatches: 3 },
+  { color: '#CC1111', label: 'Crimson',       requiredMatches: 1 },
+  { color: '#7B00CC', label: 'Shadow Purple', requiredMatches: 2 },
+  { color: '#111111', label: 'Obsidian',      requiredMatches: 3 },
 ]
 export const MP_MATCHES_KEY = 'cog_mp_matches'
-const SELECTED_COLOUR_KEY = 'cog_player_colour'
+const SELECTED_COLOUR_KEY   = 'cog_player_colour'
 
 export function getStoredColour() {
   if (typeof window === 'undefined') return RAINBOW_COLOURS[6]
   return localStorage.getItem(SELECTED_COLOUR_KEY) ?? RAINBOW_COLOURS[6]
 }
-
 export function getMpMatches() {
   if (typeof window === 'undefined') return 0
   return parseInt(localStorage.getItem(MP_MATCHES_KEY) ?? '0', 10)
 }
-
 export function incrementMpMatches() {
-  const current = getMpMatches()
-  localStorage.setItem(MP_MATCHES_KEY, String(current + 1))
+  localStorage.setItem(MP_MATCHES_KEY, String(getMpMatches() + 1))
 }
 
-interface ColourPickerScreenProps {
-  onConfirm: (colour: string) => void
-}
-
-export function ColourPickerScreen({ onConfirm }: ColourPickerScreenProps) {
-  const [selected, setSelected] = useState(RAINBOW_COLOURS[6])
+export function InlineColourPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   const [mpMatches, setMpMatches] = useState(0)
+  const [tooltip, setTooltip] = useState<string | null>(null)
+  const tooltipRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
-    const stored = getStoredColour()
-    setSelected(stored)
-    setMpMatches(getMpMatches())
-  }, [])
+  useEffect(() => { setMpMatches(getMpMatches()) }, [])
 
   function pick(col: string) {
-    setSelected(col)
+    onChange(col)
     localStorage.setItem(SELECTED_COLOUR_KEY, col)
   }
 
-  function handleConfirm() {
-    onConfirm(selected)
+  function showTooltip(msg: string) {
+    if (tooltipRef.current) clearTimeout(tooltipRef.current)
+    setTooltip(msg)
+    tooltipRef.current = setTimeout(() => setTooltip(null), 3000)
   }
 
   return (
-    <div className="colour-picker-screen">
-      <div className="colour-picker-inner">
-        <div className="colour-picker-header">
-          <Crown size={32} color="#e9c97e" />
-          <h1>CROWN OR GRAVE</h1>
-          <p>Choose your colour before the match</p>
-        </div>
+    <div className="inline-colour-picker">
+      <div className="icp-header">
+        <div className="icp-preview" style={{ background: value, boxShadow: `0 0 10px ${value}60` }} />
+        <span className="icp-label">YOUR BALL COLOUR</span>
+      </div>
 
-        {/* Preview ball */}
-        <div className="colour-preview">
-          <div className="preview-ball" style={{ background: selected, boxShadow: `0 0 30px ${selected}80, 0 0 8px ${selected}` }} />
-          <span>Your ball</span>
+      <div className="icp-section">
+        <span className="icp-section-label">RAINBOW</span>
+        <div className="icp-grid">
+          {RAINBOW_COLOURS.map(col => (
+            <button key={col} onClick={() => pick(col)}
+              className={cn('icp-swatch', value === col && 'icp-selected')}
+              style={{ background: col }} aria-label={col} />
+          ))}
         </div>
+      </div>
 
-        <div className="colour-section">
-          <h2>RAINBOW</h2>
-          <div className="colour-grid">
-            {RAINBOW_COLOURS.map(col => (
-              <button
-                key={col}
-                className={cn('colour-swatch', selected === col && 'selected')}
-                style={{ background: col }}
-                onClick={() => pick(col)}
-                aria-label={`Select colour ${col}`}
-              />
-            ))}
-          </div>
+      <div className="icp-section">
+        <span className="icp-section-label">DARK</span>
+        <div className="icp-grid">
+          {DARK_COLOURS.map(col => (
+            <button key={col} onClick={() => pick(col)}
+              className={cn('icp-swatch', value === col && 'icp-selected')}
+              style={{ background: col }} aria-label={col} />
+          ))}
         </div>
+      </div>
 
-        <div className="colour-section">
-          <h2>DARK</h2>
-          <div className="colour-grid">
-            {DARK_COLOURS.map(col => (
-              <button
-                key={col}
-                className={cn('colour-swatch', selected === col && 'selected')}
-                style={{ background: col }}
-                onClick={() => pick(col)}
-                aria-label={`Select colour ${col}`}
-              />
-            ))}
-          </div>
+      <div className="icp-section">
+        <span className="icp-section-label">PRESTIGE</span>
+        <div className="icp-grid icp-prestige-row">
+          {PRESTIGE_COLOURS.map(({ color, label, requiredMatches }) => {
+            const unlocked = mpMatches >= requiredMatches
+            return (
+              <div key={color} className="icp-prestige-wrap">
+                <button
+                  className={cn('icp-swatch', value === color && 'icp-selected', !unlocked && 'icp-locked')}
+                  style={{ background: color }}
+                  onClick={() => unlocked ? pick(color) : showTooltip(`Play ${requiredMatches} multiplayer match${requiredMatches > 1 ? 'es' : ''} to unlock ${label}`)}
+                  aria-label={unlocked ? label : `${label} — locked`}
+                >
+                  {!unlocked && <Lock size={11} color="#ffffff90" />}
+                </button>
+                {!unlocked && (
+                  <button className="icp-question" onClick={() => showTooltip(`Play ${requiredMatches} multiplayer match${requiredMatches > 1 ? 'es' : ''} to unlock ${label}`)} aria-label="How to unlock">?</button>
+                )}
+              </div>
+            )
+          })}
         </div>
-
-        <div className="colour-section">
-          <h2>PRESTIGE <span className="prestige-hint">— Play multiplayer to unlock</span></h2>
-          <div className="colour-grid">
-            {PRESTIGE_COLOURS.map(({ color, label, requiredMatches }) => {
-              const unlocked = mpMatches >= requiredMatches
-              return (
-                <div key={color} className="prestige-wrap" title={unlocked ? label : `Play ${requiredMatches} multiplayer match${requiredMatches > 1 ? 'es' : ''} to unlock`}>
-                  <button
-                    className={cn('colour-swatch', selected === color && 'selected', !unlocked && 'locked')}
-                    style={{ background: color }}
-                    onClick={() => unlocked && pick(color)}
-                    disabled={!unlocked}
-                    aria-label={unlocked ? label : `${label} — locked`}
-                  >
-                    {!unlocked && <Lock size={13} color="#ffffff80" />}
-                  </button>
-                  <span className="prestige-label">{unlocked ? label : `${requiredMatches} match${requiredMatches > 1 ? 'es' : ''}`}</span>
-                </div>
-              )
-            })}
-          </div>
-          <p className="mp-counter">Multiplayer matches played: <strong>{mpMatches}</strong> / 3</p>
-        </div>
-
-        <Button className="enter-button w-full" size="lg" onClick={handleConfirm}>
-          Enter the grove →
-        </Button>
+        {tooltip && <div className="icp-tooltip">{tooltip}</div>}
+        <p className="icp-mp-note">Multiplayer matches: <strong>{mpMatches}</strong> / 3</p>
       </div>
     </div>
   )
