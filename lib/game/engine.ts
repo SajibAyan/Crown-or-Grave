@@ -21,6 +21,13 @@ export class PracticeEngine {
     this.mapId = mapId
     const powers = Array.from({ length: 20 }, (_, i) => i)
     for (let i = powers.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [powers[i], powers[j]] = [powers[j], powers[i]] }
+    // If All-Seeing Eye (5) is in the top 5 but Invisibility (2) is not, swap ASE out for Invis
+    const top5 = powers.slice(0, 5)
+    if (top5.includes(5) && !top5.includes(2)) {
+      const aseIdx = powers.indexOf(5)
+      const invisIdx = powers.indexOf(2)
+      ;[powers[aseIdx], powers[invisIdx]] = [powers[invisIdx], powers[aseIdx]]
+    }
     const names = [name, 'Shadow', 'Wraith', 'Phantom', 'Specter']
     const players = names.map((n, i): Player => {
       const angle = -Math.PI / 2 + i * Math.PI * 2 / 5
