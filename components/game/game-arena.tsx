@@ -37,7 +37,7 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
     if (!element) return
     const ctx = element.getContext('2d')
     if (!ctx) return
-    const engine = session.mode === 'practice' ? new PracticeEngine(session.mode === 'practice' ? session.name : 'Wanderer') : null
+    const engine = session.mode === 'practice' ? new PracticeEngine(session.name, mapTheme.current.id) : null
     state.current = engine ? engine.state : session.mode === 'online' ? session.snapshot.state : null
     setDisconnected(''); input.current = emptyInput()
     const audio = new GameSound(); soundEngine.current = audio
@@ -91,9 +91,10 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
           const target = s.players.filter(p => p.id !== you && p.alive && p.visible && (p.invisibleUntil <= s.time || (player.revealUntil > s.time && distance(player, p) < 200))).sort((a, b) => distance(player, a) - distance(player, b))[0]
           if (target) { input.current.aimX = target.x; input.current.aimY = target.y }
         } else if (!touchMode.current && player && mouseDown.current) {
-          // PC left-click: auto-aim at nearest visible enemy and fire
+          // PC left-click: auto-aim at nearest visible enemy if close, always fire
           const nearest = s.players.filter(p => p.id !== you && p.alive && p.visible && p.invisibleUntil <= s.time).sort((a, b) => distance(player, a) - distance(player, b))[0]
-          if (nearest) { input.current.aimX = nearest.x; input.current.aimY = nearest.y; input.current.attack = true }
+          if (nearest && distance(player, nearest) < 300) { input.current.aimX = nearest.x; input.current.aimY = nearest.y }
+          input.current.attack = true // always fire while holding click, even while moving
         }
         if (engine) engine.update(dt, input.current)
         else if (session.mode === 'online' && now - lastSend >= 50 && session.socket.readyState === WebSocket.OPEN && session.socket.bufferedAmount < 8192) { session.socket.send(JSON.stringify({ type: 'input', ...input.current })); lastSend = now }
@@ -194,7 +195,7 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
           />
           {hud?.status === 'playing' && hud.time < 3 && <div className="countdown-overlay"><span>THE GROVE IS WAKING</span><strong>{Math.ceil(3 - hud.time)}</strong><p>Five enter. One remains.</p></div>}
           {hud?.status === 'waiting' && <div className="arena-overlay"><div className="waiting-card"><Egg size={40} /><span className="eyebrow">YOUR ARENA IS READY</span><h1>Gather your rivals.</h1><p>You need 4 more people to start. The match begins when all five players arrive.</p><div className="waiting-slots">{Array.from({ length: 5 }, (_, i) => <div key={i} className={cn(hud.players[i] && 'occupied')}><Users size={20} /><span>{hud.players[i]?.name ?? 'Waiting…'}</span></div>)}</div><div className="room-code"><span>ROOM CODE</span><strong>{code}</strong></div><Button onClick={copyInvite}>{copied ? <Check data-icon="inline-start" /> : <Copy data-icon="inline-start" />}{copied ? 'Link copied' : 'Copy invite link'}</Button><p className="muted-footnote">{hud.players.length} of 5 players connected.</p></div></div>}
-          {hud?.status === 'finished' && <div className="arena-overlay"><div className="result-card"><Trophy size={46} /><span className="eyebrow">{hud.winner === you ? 'THE CROWN IS YOURS' : 'ONLY THE GRAVE AWAITS'}</span><h1>{hud.winner === you ? 'YOU WIN THE CROWN.' : winner ? `${winner.name.toUpperCase()} CLAIMS THE CROWN.` : 'THE GROVE WINS.'}</h1><p>{hud.winner === you ? 'Five entered. You remained.' : 'A different egg. A different story.'}</p><div className="result-stats"><span><strong>{me?.kills ?? 0}</strong>Eliminations</span><span><strong>{Math.floor(hud.time)}s</strong>Match duration</span><span><strong>{me?.hatched ? abilities[me.ability]?.name ?? 'Unknown' : 'Unawakened'}</strong>Your power</span></div><div className="result-actions">{session.mode === 'practice' && <Button size="lg" onClick={onReplay}><RotateCcw data-icon="inline-start" />Play again</Button>}<Button variant="outline" size="lg" onClick={onExit}>Back to lobby<ArrowRight data-icon="inline-end" /></Button></div></div></div>}
+          {hud?.status === 'finished' && <div className="arena-overlay"><div className="result-card"><Trophy size={46} /><span className="eyebrow">{hud.winner === you ? 'THE CROWN IS YOURS' : 'ONLY THE GRAVE AWAITS'}</span><h1>{hud.winner === you ? `${(me?.name || 'YOU').toUpperCase()} GOT THE KING'S CROWN` : winner ? `${winner.name.toUpperCase()} GOT THE KING'S CROWN` : 'THE GROVE CLAIMS EVERYONE.'}</h1><p>{hud.winner === you ? 'Five entered. You remained.' : 'A different egg. A different story.'}</p><div className="result-stats"><span><strong>{me?.kills ?? 0}</strong>Eliminations</span><span><strong>{Math.floor(hud.time)}s</strong>Match duration</span><span><strong>{me?.hatched ? abilities[me.ability]?.name ?? 'Unknown' : 'Unawakened'}</strong>Your power</span></div><div className="result-actions">{session.mode === 'practice' && <Button size="lg" onClick={onReplay}><RotateCcw data-icon="inline-start" />Play again</Button>}<Button variant="outline" size="lg" onClick={onExit}>Back to lobby<ArrowRight data-icon="inline-end" /></Button></div></div></div>}
           {disconnected && <div className="arena-overlay"><div className="result-card"><WifiOff size={38} /><h1>CONNECTION LOST</h1><p>{disconnected}</p><Button onClick={onExit}>Return to lobby</Button></div></div>}
         </div>
         <div className="arena-bottom-hud">
@@ -259,9 +260,10 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
 
         <div className="arena-controls-hint">
           <span><kbd>W A S D</kbd> Move</span>
-          <span><kbd>CLICK</kbd> Auto-fire nearest</span>
-          <span><kbd>E</kbd> Hatch</span>
+          <span><kbd>HOLD CLICK</kbd> Auto-fire (works while moving)</span>
+          <span><kbd>E</kbd> Hatch egg</span>
           <span><kbd>SPACE</kbd> Ability</span>
+          <span><kbd>WASD + SPACE</kbd> Teleport direction</span>
         </div>
       </section>
 

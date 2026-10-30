@@ -23,7 +23,7 @@ const GameArena = dynamic(() => import('./game-arena').then(m => m.GameArena), {
 type Section = 'arena' | 'abilities' | 'guide'
 const navItems = [
   { id: 'arena' as const, icon: Swords, label: 'The arena' },
-  { id: 'abilities' as const, icon: Sparkles, label: 'Abilities', tag: '15' },
+  { id: 'abilities' as const, icon: Sparkles, label: 'Abilities', tag: '20' },
   { id: 'guide' as const, icon: BookOpen, label: 'How to play' },
 ]
 
@@ -43,6 +43,8 @@ export function GameShell() {
   useEffect(() => {
     setReady(true)
     setPlayerColour(getStoredColour())
+    const savedName = localStorage.getItem('cor_player_name')
+    if (savedName && savedName.trim()) setName(savedName.trim())
     const params = new URLSearchParams(window.location.search)
     const code = params.get('room')
     const endpoint = params.get('server')
@@ -114,7 +116,7 @@ export function GameShell() {
 
     <div className="main-wrap">
       <header className="topbar">
-        <div className="breadcrumb"><span>Play</span><ChevronRight size={12} /><strong>{section === 'arena' ? 'The arena' : section === 'abilities' ? 'Abilities' : 'How to play'}</strong></div>
+        <div className="topbar-player-hero"><span className="live-dot" /><strong>{name.trim() || 'Wanderer'}</strong></div>
         <div className="topbar-right">
           <span className="practice-status"><span className="live-dot" /> Practice ready</span>
           <span className="topbar-divider" />
@@ -140,7 +142,7 @@ export function GameShell() {
                 <p>A mysterious egg. An unexpected power.<br />What you do next is up to you.</p>
                 <div className="hero-facts">
                   <span><Users size={14} />5 players</span><i />
-                  <span><Sparkles size={14} />15 abilities</span><i />
+                  <span><Sparkles size={14} />20 abilities</span><i />
                   <span><Trophy size={14} />1 survivor</span>
                 </div>
               </div>
@@ -156,7 +158,7 @@ export function GameShell() {
                 <p>Every legend starts somewhere.</p>
               </div>
               <Field><FieldLabel htmlFor="player-name">YOUR NAME</FieldLabel>
-                <div className="name-input-wrap"><UserRound size={15} /><Input id="player-name" value={name} maxLength={18} onChange={e => setName(e.target.value)} placeholder="Enter your name" /></div>
+                <div className="name-input-wrap"><UserRound size={15} /><Input id="player-name" value={name} maxLength={18} onChange={e => { setName(e.target.value); localStorage.setItem('cor_player_name', e.target.value) }} placeholder="Enter your name" /></div>
               </Field>
 
               {/* Inline colour picker — always visible */}
@@ -208,7 +210,7 @@ export function GameShell() {
           <section className="abilities-preview">
             <div className="section-heading">
               <div>
-                <div className="heading-with-badge"><h2>One egg. Endless possibilities.</h2><Badge variant="secondary">15 UNIQUE ABILITIES</Badge></div>
+                <div className="heading-with-badge"><h2>One egg. Endless possibilities.</h2><Badge variant="secondary">20 UNIQUE ABILITIES</Badge></div>
                 <p>You don&apos;t choose your power. You choose what to do with it.</p>
               </div>
               <button className="text-link" onClick={() => navigate('abilities')}>Explore all abilities <ArrowRight size={15} /></button>
@@ -219,8 +221,8 @@ export function GameShell() {
         </>}
         {section === 'abilities' && <>
           <div className="page-heading">
-            <div><span className="eyebrow">THE ABILITY CODEX</span><h1>Discover your edge.</h1><p>Fifteen powers. Five eggs. No duplicates. Meet your next advantage.</p></div>
-            <Badge variant="outline">BALANCE v0.2</Badge>
+            <div><span className="eyebrow">THE ABILITY CODEX</span><h1>Discover your edge.</h1><p>Twenty powers. Five eggs. No duplicates. Meet your next advantage.</p></div>
+            <Badge variant="outline">BALANCE v0.3</Badge>
           </div>
           <div className="codex-notice"><Egg size={22} /><p>Your ability is randomly assigned when the match starts, and revealed when you hatch your egg.</p></div>
           <AbilityCodex full />
@@ -235,7 +237,7 @@ export function GameShell() {
     <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
       <DialogContent>
         <DialogHeader><DialogTitle>Your setup</DialogTitle><DialogDescription>Make yourself at home before entering the unknown.</DialogDescription></DialogHeader>
-        <Field><FieldLabel htmlFor="settings-name">Player name</FieldLabel><Input id="settings-name" maxLength={18} value={name} onChange={e => setName(e.target.value)} /></Field>
+        <Field><FieldLabel htmlFor="settings-name">Player name</FieldLabel><Input id="settings-name" maxLength={18} value={name} onChange={e => { setName(e.target.value); localStorage.setItem('cor_player_name', e.target.value) }} /></Field>
         <Field orientation="horizontal"><FieldLabel htmlFor="game-sound">Game sound effects</FieldLabel><Switch id="game-sound" checked={sound} onCheckedChange={setSound} /></Field>
         <p className="muted-footnote">Settings apply to this visit. No accounts or tracking are needed to play.</p>
         <Button onClick={() => setSettingsOpen(false)}>Back to the arena <ArrowRight data-icon="inline-end" /></Button>

@@ -16,12 +16,14 @@ export type Player = {
   copies: number[]; selectedCopy: number; cycleCooldown: number; kills: number; bot: boolean;
   eggX: number; eggY: number; visible: boolean;
   mirrorUntil: number; chainTarget: string | null;
+  berserkerUntil: number; ironSkinUntil: number;
+  meteorAt: number; meteorX: number; meteorY: number;
 }
-export type Projectile = { id: number; owner: string; x: number; y: number; vx: number; vy: number; life: number }
+export type Projectile = { id: number; owner: string; x: number; y: number; vx: number; vy: number; life: number; damage?: number }
 export type Effect = { x: number; y: number; radius: number; until: number; kind: string; owner: string }
 export type ArenaState = { time: number; status: 'waiting' | 'playing' | 'finished'; players: Player[]; projectiles: Projectile[]; effects: Effect[]; winner: string | null; radius: number; events: string[] }
 export type RoomSnapshot = { type: 'state'; code: string; you: string; host: string; state: ArenaState }
-export type GameSession = { mode: 'practice'; name: string } | { mode: 'online'; socket: WebSocket; snapshot: RoomSnapshot }
+export type GameSession = { mode: 'practice'; name: string; mapId?: number } | { mode: 'online'; socket: WebSocket; snapshot: RoomSnapshot }
 export const distance = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y)
 export const WORLD_CX = 375
 export const WORLD_CY = 262
