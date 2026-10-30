@@ -116,7 +116,10 @@ export function GameShell() {
 
     <div className="main-wrap">
       <header className="topbar">
-        <div className="topbar-player-hero"><span className="live-dot" /><strong>{name.trim() || 'Wanderer'}</strong></div>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '3px' }}>
+          <span style={{ fontSize: '8px', letterSpacing: '3px', color: '#3d5228', textTransform: 'uppercase' }}>The Awakening</span>
+          <span style={{ fontSize: '13px', color: '#8aad6a', fontStyle: 'italic' }}>&ldquo;Five enters. King remains.&rdquo;</span>
+        </div>
         <div className="topbar-right">
           <span className="practice-status"><span className="live-dot" /> Practice ready</span>
           <span className="topbar-divider" />
