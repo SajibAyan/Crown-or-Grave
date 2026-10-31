@@ -18,6 +18,7 @@ import { OnlineDialog } from './online-dialog'
 import { InlineColourPicker, getStoredColour, incrementMpMatches } from './colour-picker'
 import { cn } from '@/lib/utils'
 import type { GameSession } from '@/lib/game/types'
+import { pickRandomMap } from '@/lib/game/maps'
 
 const GameArena = dynamic(() => import('./game-arena').then(m => m.GameArena), { ssr: false, loading: () => <div className="arena-loading"><Egg size={36} /><h2>Entering the grove…</h2></div> })
 type Section = 'arena' | 'abilities' | 'guide'
@@ -54,7 +55,7 @@ export function GameShell() {
   function navigate(value: Section) { setSection(value); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'instant' }) }
 
   function startPractice() {
-    setSession({ mode: 'practice', name: name.trim() || 'Wanderer' })
+    setSession({ mode: 'practice', name: name.trim() || 'Wanderer', mapId: pickRandomMap().id })
   }
   function startOnline() {
     setOnlineOpen(true)
@@ -66,9 +67,11 @@ export function GameShell() {
   }
 
   if (session) return <>
-    <GameArena session={session} server={server} sound={sound} playerColour={playerColour}
+    <GameArena
+      key={session.mode === 'practice' ? `practice-${session.mapId}` : `online-${session.snapshot.code}`}
+      session={session} server={server} sound={sound} playerColour={playerColour}
       onExit={() => { if (session.mode === 'online') session.socket.close(); setSession(null) }}
-      onReplay={() => setSession({ mode: 'practice', name: name.trim() || 'Wanderer' })}
+      onReplay={() => setSession({ mode: 'practice', name: name.trim() || 'Wanderer', mapId: pickRandomMap(session.mode === 'practice' ? session.mapId : undefined).id })}
     />
     <Toaster theme="dark" />
   </>

@@ -21,6 +21,7 @@ export const MAP_THEMES: MapTheme[] = [
   { id: 4, name: 'THE SHADOW REALM',    bg: '#05000e', floor: '#0d0020', t1: '#130028', t2: '#0f001e', wTop: '#7c40c8', wSide: '#2c0058', wShad: '#020005', acc: '#9050e0', fog: '#04000c', det: 'void' },
 ]
 
-export function pickRandomMap(): MapTheme {
-  return MAP_THEMES[Math.floor(Math.random() * MAP_THEMES.length)]
+export function pickRandomMap(previousMapId?: number): MapTheme {
+  const choices = MAP_THEMES.filter(map => map.id !== previousMapId)
+  return choices[Math.floor(Math.random() * choices.length)]
 }

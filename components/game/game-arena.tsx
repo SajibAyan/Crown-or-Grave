@@ -11,7 +11,7 @@ import { renderArena } from '@/lib/game/renderer'
 import { GameSound } from '@/lib/game/sound'
 import { PlayerControls, type ControlAction } from '@/lib/game/player-controls'
 import { emptyInput, type ArenaState, type GameInput, type GameSession, type RoomSnapshot } from '@/lib/game/types'
-import { pickRandomMap, type MapTheme } from '@/lib/game/maps'
+import { MAP_THEMES, pickRandomMap, type MapTheme } from '@/lib/game/maps'
 import { cn } from '@/lib/utils'
 
 export function GameArena({ session, server, sound, playerColour, onExit, onReplay }: {
@@ -24,7 +24,12 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
   const soundEngine = useRef<GameSound | null>(null)
   const controls = useRef(new PlayerControls())
   const tRef = useRef(0)
-  const mapTheme = useRef<MapTheme>(pickRandomMap())
+  // The parent chooses a new map and remounts this arena for each replay.
+  // Resolve it once so HUD rerenders cannot silently reroll the theme.
+  const [mapTheme] = useState<MapTheme>(() =>
+    session.mode === 'practice' && session.mapId !== undefined
+      ? MAP_THEMES.find(map => map.id === session.mapId) ?? pickRandomMap()
+      : pickRandomMap())
   const [hud, setHud] = useState<ArenaState | null>(session.mode === 'online' ? session.snapshot.state : null)
   const [exitOpen, setExitOpen] = useState(false)
   const [disconnected, setDisconnected] = useState('')
@@ -37,7 +42,7 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
     if (!element) return
     const ctx = element.getContext('2d')
     if (!ctx) return
-    const engine = session.mode === 'practice' ? new PracticeEngine(session.name, mapTheme.current.id) : null
+    const engine = session.mode === 'practice' ? new PracticeEngine(session.name, mapTheme.id) : null
     state.current = engine ? engine.state : session.mode === 'online' ? session.snapshot.state : null
     setDisconnected(''); input.current = emptyInput(); controls.current.clear()
     const audio = new GameSound(); soundEngine.current = audio
@@ -84,7 +89,7 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
           if (player && player.shotCooldown > beforeShot + .01) controls.current.acknowledgeShot()
         } else if (session.mode === 'online' && now - lastSend >= 50 && session.socket.readyState === WebSocket.OPEN && session.socket.bufferedAmount < 8192) { session.socket.send(JSON.stringify({ type: 'input', ...input.current })); lastSend = now }
         lastObservedShot = player?.shotCooldown ?? 0
-        renderArena(ctx, s, you, w, h, mapTheme.current, tRef.current, playerColour)
+        renderArena(ctx, s, you, w, h, mapTheme, tRef.current, playerColour)
         if (player && sound) {
           if (player.hatched && !wasHatched) audio.play('hatch')
           if (player.cooldown > oldCooldown + 1) audio.play('ability')
@@ -154,7 +159,7 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
       </button>
       <div className="arena-location">
         <span className="live-dot" />
-        {mapTheme.current.name}
+        {mapTheme.name}
         <span>{session.mode === 'practice' ? 'SOLO PRACTICE · 4 COMPUTERS' : `PRIVATE ROOM · ${code}`}</span>
       </div>
       <Button variant="outline" onClick={() => { controls.current.clear(); input.current = emptyInput(); setExitOpen(true) }}><LogOut data-icon="inline-start" />Leave</Button>
