@@ -82,7 +82,7 @@ export function GameShell() {
     <aside className={cn('sidebar', mobileMenu && 'sidebar-open')}>
       <button className="brand desktop-brand" onClick={() => navigate('arena')} aria-label="Crown or Grave home">
         <span className="brand-mark"><Crown strokeWidth={1.8} /></span>
-        <span>CROWN OR GRAVE<small>SURVIVE THE UNKNOWN</small></span>
+        <span className="brand-copy"><span className="brand-title"><span>CROWN</span><span className="brand-or">OR</span><span>GRAVE</span></span><small>SURVIVE THE UNKNOWN</small></span>
       </button>
       <div className="sidebar-nav">
         <span className="nav-label">THE PLAYGROUND</span>
@@ -116,11 +116,12 @@ export function GameShell() {
 
     <div className="main-wrap">
       <header className="topbar">
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '3px' }}>
-          <span style={{ fontSize: '8px', letterSpacing: '3px', color: '#3d5228', textTransform: 'uppercase' }}>The Awakening</span>
-          <span style={{ fontSize: '13px', color: '#8aad6a', fontStyle: 'italic' }}>&ldquo;Five enters. King remains.&rdquo;</span>
-        </div>
+        <span className="topbar-title"><span className="topbar-parent">Play</span><span className="topbar-separator">—</span><strong>The Arena</strong></span>
         <div className="topbar-right">
+          <div className="topbar-tagline">
+            <span className="topbar-chapter">The Awakening</span>
+            <span className="topbar-motto">&ldquo;Five enters. King remains.&rdquo;</span>
+          </div>
           <span className="practice-status"><span className="live-dot" /> Practice ready</span>
           <span className="topbar-divider" />
           <div className="colour-preview-dot" style={{ background: playerColour, boxShadow: `0 0 8px ${playerColour}90` }} title="Ball colour" />

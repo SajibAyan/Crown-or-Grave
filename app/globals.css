@@ -37,6 +37,10 @@
 .brand-mark { display: grid; place-items: center; color: var(--primary); width: 34px; height: 42px; }
 .brand-mark svg { width: 36px; height: 40px; }
 .brand small { display: block; font-family: var(--font-inter), sans-serif; font-size: 6.5px; font-weight: 500; letter-spacing: 2px; color: #8a9086; margin-top: -2px; }
+.desktop-brand .brand-copy { min-width: 0; }
+.desktop-brand .brand-title { display: flex; flex-direction: column; align-items: center; gap: 5px; line-height: 1; }
+.desktop-brand .brand-or { font-size: .5em; letter-spacing: 3px; color: var(--primary); }
+.desktop-brand small { margin-top: 10px; white-space: nowrap; }
 .sidebar-nav { margin-top: 57px; }
 .nav-label { font-size: 8px; font-weight: 600; letter-spacing: 1.8px; color: #717b6d; padding: 0 13px; }
 .sidebar nav { display: flex; flex-direction: column; gap: 8px; margin-top: 17px; }
@@ -65,7 +69,13 @@
 .topbar { height: 70px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; padding: 0 36px; }
 .breadcrumb { display: flex; align-items: center; gap: 12px; font-size: 10px; color: #7d867a; }
 .breadcrumb strong { font-weight: 400; color: #c2c7bb; }
+.topbar-title { display: flex; align-items: center; font-size: 14px; white-space: nowrap; }
+.topbar-parent, .topbar-separator { color: #7d867a; font-weight: 400; }
+.topbar-title strong { color: #f3efe5; font-weight: 500; }
 .topbar-right { display: flex; align-items: center; gap: 18px; }
+.topbar-tagline { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; margin-right: 18px; text-align: center; }
+.topbar-chapter { font-size: 8px; letter-spacing: 3px; color: #88947f; text-transform: uppercase; }
+.topbar-motto { font-size: 13px; color: #8aad6a; font-style: italic; white-space: nowrap; }
 .practice-status { display: flex; align-items: center; gap: 7px; font-size: 10px; color: #adb69f; }
 .topbar-divider { height: 16px; border-left: 1px solid #30372b; }
 .header-avatar { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid #4b503c; background: #343a29; font-family: var(--font-display), sans-serif; color: #d5d6b9; font-size: 15px; }
@@ -272,3 +282,13 @@
 .dpad-left { left: 0; top: 50%; transform: translateY(-50%); }
 .dpad-right { right: 0; top: 50%; transform: translateY(-50%); }
 .dpad-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 32px; height: 32px; border-radius: 50%; background: #1e2c14; border: 1px solid #3a4a28; pointer-events: none; }
+
+/* Keep the relocated tagline visible without crowding the mobile controls. */
+@media (max-width: 650px) {
+  .topbar { height: auto; min-height: 80px; gap: 12px; padding-top: 10px; padding-bottom: 10px; }
+  .topbar-title { font-size: 13px; }
+  .topbar-right { flex: 1; justify-content: flex-end; flex-wrap: wrap; gap: 6px 10px; }
+  .topbar-tagline { flex-basis: 100%; margin-right: 0; order: 1; }
+  .topbar-chapter { font-size: 7px; letter-spacing: 2px; }
+  .topbar-motto { font-size: 12px; }
+}
