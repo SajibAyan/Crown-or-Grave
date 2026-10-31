@@ -16,13 +16,13 @@ export function GameGuide() {
       <section className="guide-panel">
         <MousePointer2 size={24} /><h3>Know your controls</h3>
         {[
-          ['W A S D / ↑ ↓ ← →', 'Move through the arena'],
-          ['Left Click (PC)', 'Auto-aim and fire at the nearest enemy'],
+          ['W A S D', 'Move through the arena'],
+          ['Left Click (PC)', 'Tap or hold to fire at the nearest enemy — no cursor aiming'],
           ['E', 'Hatch your nearby egg'],
           ['Space / Q', 'Activate your ability'],
           ['R', 'Cycle copied powers'],
         ].map(([key, label]) => <div className="control-row" key={key}><span>{label}</span><kbd>{key}</kbd></div>)}
-        <p className="muted-footnote">On mobile: use the D-pad to move and the action buttons to fire and use abilities. Attacks auto-aim at the nearest visible opponent.</p>
+        <p className="muted-footnote">On mobile: hold the D-pad to move and tap or hold the dedicated Fire button with another finger. Aiming is automatic. You can move and fire together.</p>
       </section>
       <section className="guide-panel">
         <ShieldCheck size={24} /><h3>The rules of survival</h3>

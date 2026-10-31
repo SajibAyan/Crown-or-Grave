@@ -161,7 +161,6 @@ export function renderArena(
   you: string,
   width: number,
   height: number,
-  aim: { x: number; y: number },
   mapTheme: MapTheme,
   t: number,
   playerColour: string
@@ -268,13 +267,6 @@ export function renderArena(
   for (const b of s.projectiles) {
     ctx.save(); ctx.shadowColor = b.owner === you ? '#f6d485' : '#c2cfb6'; ctx.shadowBlur = 12
     circle(ctx, b.x, b.y, 3.5, b.owner === you ? '#f6d485' : '#c2cfb6'); ctx.restore()
-  }
-
-  // crosshair
-  if (me?.alive) {
-    ctx.strokeStyle = '#ead4a588'; ctx.lineWidth = 1
-    ctx.beginPath(); ctx.moveTo(aim.x - 7, aim.y); ctx.lineTo(aim.x + 7, aim.y)
-    ctx.moveTo(aim.x, aim.y - 7); ctx.lineTo(aim.x, aim.y + 7); ctx.stroke()
   }
 
   // vignette

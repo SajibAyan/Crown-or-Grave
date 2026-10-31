@@ -9,7 +9,8 @@ import { abilities } from '@/lib/game/abilities'
 import { PracticeEngine } from '@/lib/game/engine'
 import { renderArena } from '@/lib/game/renderer'
 import { GameSound } from '@/lib/game/sound'
-import { distance, emptyInput, WORLD_CX, WORLD_CY, type ArenaState, type GameInput, type GameSession, type RoomSnapshot } from '@/lib/game/types'
+import { PlayerControls, type ControlAction } from '@/lib/game/player-controls'
+import { emptyInput, type ArenaState, type GameInput, type GameSession, type RoomSnapshot } from '@/lib/game/types'
 import { pickRandomMap, type MapTheme } from '@/lib/game/maps'
 import { cn } from '@/lib/utils'
 
@@ -21,8 +22,7 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
   const state = useRef<ArenaState | null>(null)
   const input = useRef<GameInput>(emptyInput())
   const soundEngine = useRef<GameSound | null>(null)
-  const touchMode = useRef(false)
-  const mouseDown = useRef(false)
+  const controls = useRef(new PlayerControls())
   const tRef = useRef(0)
   const mapTheme = useRef<MapTheme>(pickRandomMap())
   const [hud, setHud] = useState<ArenaState | null>(session.mode === 'online' ? session.snapshot.state : null)
@@ -39,42 +39,31 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
     if (!ctx) return
     const engine = session.mode === 'practice' ? new PracticeEngine(session.name, mapTheme.current.id) : null
     state.current = engine ? engine.state : session.mode === 'online' ? session.snapshot.state : null
-    setDisconnected(''); input.current = emptyInput()
+    setDisconnected(''); input.current = emptyInput(); controls.current.clear()
     const audio = new GameSound(); soundEngine.current = audio
-    const keys = new Set<string>()
-    let frame = 0, previousTime = 0, lastHud = 0, lastSend = 0, w = 750, h = 525, oldHp = 100, wasHatched = false, oldCooldown = 0, oldShot = 0
+    let frame = 0, previousTime = 0, lastHud = 0, lastSend = 0, w = 750, h = 525, oldHp = 100, wasHatched = false, oldCooldown = 0, oldShot = 0, lastObservedShot = 0
     const resize = () => {
       const rect = element.getBoundingClientRect(); w = rect.width; h = rect.height
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       element.width = w * dpr; element.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     }
     const observer = new ResizeObserver(resize); observer.observe(element); resize()
-    const updateMovement = () => {
-      input.current.dx = Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft'))
-      input.current.dy = Number(keys.has('s') || keys.has('arrowdown')) - Number(keys.has('w') || keys.has('arrowup'))
-    }
-    const controlledKeys = ['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','e','q',' ','j','r']
+    const controlledKeys = ['w','a','s','d','e','q',' ','r']
     const keyDown = (event: KeyboardEvent) => {
       if (event.isComposing || event.keyCode === 229 || document.querySelector('[data-slot="dialog-content"]')) return
       const key = event.key.toLowerCase()
       if (!controlledKeys.includes(key)) return
-      event.preventDefault(); audio.unlock(); keys.add(key); updateMovement()
-      if (key === 'e') input.current.hatch = true
-      if (key === ' ' || key === 'q') input.current.ability = true
-      if (key === 'j') input.current.attack = true
-      if (key === 'r') input.current.cycle = true
+      event.preventDefault(); audio.unlock(); controls.current.setKey(key, true)
     }
     const keyUp = (event: KeyboardEvent) => {
-      const key = event.key.toLowerCase(); keys.delete(key); updateMovement()
-      if (key === 'e') input.current.hatch = false
-      if (key === ' ' || key === 'q') input.current.ability = false
-      if (key === 'j') input.current.attack = false
-      if (key === 'r') input.current.cycle = false
+      controls.current.setKey(event.key.toLowerCase(), false)
     }
-    const clear = () => { keys.clear(); input.current = emptyInput(); mouseDown.current = false }
+    const clear = () => { controls.current.clear(); input.current = emptyInput() }
+    const pointerUp = (event: PointerEvent) => controls.current.releasePointer(event.pointerId)
+    const pointerCancel = (event: PointerEvent) => controls.current.releasePointer(event.pointerId, true)
     window.addEventListener('keydown', keyDown); window.addEventListener('keyup', keyUp)
     window.addEventListener('blur', clear); document.addEventListener('visibilitychange', clear)
-    window.addEventListener('pointerup', () => { mouseDown.current = false; if (!touchMode.current) input.current.attack = false })
+    window.addEventListener('pointerup', pointerUp); window.addEventListener('pointercancel', pointerCancel)
     const receive = (event: MessageEvent) => {
       try { const msg = JSON.parse(event.data); if (msg.type === 'state') state.current = (msg as RoomSnapshot).state; else if (msg.type === 'error') toast.error(msg.message) } catch { setDisconnected('The server sent an invalid game update.') }
     }
@@ -86,19 +75,16 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
       const s = state.current
       if (s) {
         const player = s.players.find(p => p.id === you)
-        if (touchMode.current && player) {
-          // Touch: always auto-aim at nearest visible enemy
-          const target = s.players.filter(p => p.id !== you && p.alive && p.visible && (p.invisibleUntil <= s.time || (player.revealUntil > s.time && distance(player, p) < 200))).sort((a, b) => distance(player, a) - distance(player, b))[0]
-          if (target) { input.current.aimX = target.x; input.current.aimY = target.y }
-        } else if (!touchMode.current && player && mouseDown.current) {
-          // PC left-click: auto-aim at nearest visible enemy if close, always fire
-          const nearest = s.players.filter(p => p.id !== you && p.alive && p.visible && p.invisibleUntil <= s.time).sort((a, b) => distance(player, a) - distance(player, b))[0]
-          if (nearest && distance(player, nearest) < 300) { input.current.aimX = nearest.x; input.current.aimY = nearest.y }
-          input.current.attack = true // always fire while holding click, even while moving
-        }
-        if (engine) engine.update(dt, input.current)
-        else if (session.mode === 'online' && now - lastSend >= 50 && session.socket.readyState === WebSocket.OPEN && session.socket.bufferedAmount < 8192) { session.socket.send(JSON.stringify({ type: 'input', ...input.current })); lastSend = now }
-        renderArena(ctx, s, you, w, h, { x: input.current.aimX, y: input.current.aimY }, mapTheme.current, tRef.current, playerColour)
+        if (document.querySelector('[data-slot="dialog-content"]')) controls.current.clear()
+        if (!engine && player && player.shotCooldown > lastObservedShot + .01) controls.current.acknowledgeShot()
+        input.current = controls.current.read(s, you)
+        const beforeShot = player?.shotCooldown ?? 0
+        if (engine) {
+          engine.update(dt, input.current)
+          if (player && player.shotCooldown > beforeShot + .01) controls.current.acknowledgeShot()
+        } else if (session.mode === 'online' && now - lastSend >= 50 && session.socket.readyState === WebSocket.OPEN && session.socket.bufferedAmount < 8192) { session.socket.send(JSON.stringify({ type: 'input', ...input.current })); lastSend = now }
+        lastObservedShot = player?.shotCooldown ?? 0
+        renderArena(ctx, s, you, w, h, mapTheme.current, tRef.current, playerColour)
         if (player && sound) {
           if (player.hatched && !wasHatched) audio.play('hatch')
           if (player.cooldown > oldCooldown + 1) audio.play('ability')
@@ -115,6 +101,8 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
       cancelAnimationFrame(frame); observer.disconnect(); audio.dispose()
       window.removeEventListener('keydown', keyDown); window.removeEventListener('keyup', keyUp)
       window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', clear)
+      window.removeEventListener('pointerup', pointerUp); window.removeEventListener('pointercancel', pointerCancel)
+      controls.current.clear()
       if (session.mode === 'online') { session.socket.removeEventListener('message', receive); session.socket.removeEventListener('close', lost); session.socket.removeEventListener('error', lost) }
     }
   }, [session, you, sound, playerColour])
@@ -124,42 +112,34 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
   const alive = hud?.players.filter(p => p.alive).length ?? 5
   const winner = hud?.players.find(p => p.id === hud.winner)
 
-  function onCanvasPointerMove(event: React.PointerEvent<HTMLCanvasElement>) {
-    if (event.pointerType === 'touch') { touchMode.current = true; return }
-    touchMode.current = false
-    // Only update manual aim when mouse button is NOT held (when held, we auto-aim in tick)
-    if (!mouseDown.current) {
-      const r = event.currentTarget.getBoundingClientRect()
-      const scale = Math.min(r.width / 750, r.height / 525)
-      input.current.aimX = (event.clientX - r.left - (r.width - 750 * scale) / 2) / scale
-      input.current.aimY = (event.clientY - r.top - (r.height - 525 * scale) / 2) / scale
-    }
+  function onArenaPointerDown(event: React.PointerEvent<HTMLElement>) {
+    if (event.pointerType === 'touch' || event.button !== 0) return
+    // Left click anywhere in the arena, except actual interface controls.
+    if ((event.target as Element).closest('button, a, input, select, textarea, [role="dialog"], .arena-overlay')) return
+    event.preventDefault(); soundEngine.current?.unlock()
+    controls.current.pressAction(event.pointerId, 'attack')
+    event.currentTarget.setPointerCapture(event.pointerId)
+    canvas.current?.focus({ preventScroll: true })
   }
 
-  function onCanvasPointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
-    if (event.pointerType === 'touch') { touchMode.current = true; return }
-    touchMode.current = false
-    soundEngine.current?.unlock()
-    mouseDown.current = true
-    // Auto-aim fires immediately on click — handled in tick loop
-    event.currentTarget.focus()
+  function releasePointer(event: React.PointerEvent) {
+    controls.current.releasePointer(event.pointerId)
   }
 
-  // D-pad direction buttons
+  function cancelPointer(event: React.PointerEvent) {
+    controls.current.releasePointer(event.pointerId, true)
+  }
+
   function dpadDown(event: React.PointerEvent, dx: number, dy: number) {
     event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId)
-    touchMode.current = true; soundEngine.current?.unlock()
-    input.current.dx = dx; input.current.dy = dy
-  }
-  function dpadUp(event: React.PointerEvent, dx: number, dy: number) {
-    if (input.current.dx === dx) input.current.dx = 0
-    if (input.current.dy === dy) input.current.dy = 0
+    soundEngine.current?.unlock()
+    controls.current.pressDirection(event.pointerId, dx, dy)
   }
 
-  function touchAction(event: React.PointerEvent, key: 'ability' | 'hatch' | 'attack' | 'cycle') {
+  function touchAction(event: React.PointerEvent, key: ControlAction) {
     event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId)
-    touchMode.current = true; soundEngine.current?.unlock()
-    Object.assign(input.current, { [key]: true })
+    soundEngine.current?.unlock()
+    controls.current.pressAction(event.pointerId, key)
   }
 
   async function copyInvite() {
@@ -167,9 +147,9 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
     try { await navigator.clipboard.writeText(url.toString()); setCopied(true); toast.success('Invite link copied.'); setTimeout(() => setCopied(false), 2500) } catch { toast.error('Clipboard access is blocked.') }
   }
 
-  return <main className="arena-screen">
+  return <main className="arena-screen" onPointerDown={onArenaPointerDown} onLostPointerCapture={releasePointer}>
     <header className="arena-header">
-      <button className="brand" onClick={() => { input.current = emptyInput(); setExitOpen(true) }}>
+      <button className="brand" onClick={() => { controls.current.clear(); input.current = emptyInput(); setExitOpen(true) }}>
         <span className="brand-mark"><Crown /></span>CROWN OR GRAVE
       </button>
       <div className="arena-location">
@@ -177,7 +157,7 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
         {mapTheme.current.name}
         <span>{session.mode === 'practice' ? 'SOLO PRACTICE · 4 COMPUTERS' : `PRIVATE ROOM · ${code}`}</span>
       </div>
-      <Button variant="outline" onClick={() => { input.current = emptyInput(); setExitOpen(true) }}><LogOut data-icon="inline-start" />Leave</Button>
+      <Button variant="outline" onClick={() => { controls.current.clear(); input.current = emptyInput(); setExitOpen(true) }}><LogOut data-icon="inline-start" />Leave</Button>
     </header>
     <div className="arena-layout">
       <section className="arena-play-area" aria-label="Survival game">
@@ -188,9 +168,7 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
         </div>
         <div className="canvas-wrap">
           <canvas ref={canvas} tabIndex={0}
-            aria-label="Game arena. WASD to move, E to hatch, left click to auto-fire, Space for ability."
-            onPointerMove={onCanvasPointerMove}
-            onPointerDown={onCanvasPointerDown}
+            aria-label="Game arena. WASD to move. Tap or hold left click to fire with automatic aiming. E to hatch. Space for ability."
             onContextMenu={e => e.preventDefault()}
           />
           {hud?.status === 'playing' && hud.time < 3 && <div className="countdown-overlay"><span>THE GROVE IS WAKING</span><strong>{Math.ceil(3 - hud.time)}</strong><p>Five enter. One remains.</p></div>}
@@ -208,8 +186,8 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
             <div><small>{me?.hatched ? 'YOUR ABILITY' : 'YOUR POWER IS WAITING'}</small><strong>{currentAbility?.name ?? 'Hatch your egg'}</strong></div>
             <button className="ability-key"
               onPointerDown={e => touchAction(e, me?.hatched ? 'ability' : 'hatch')}
-              onPointerUp={() => { input.current.ability = false; input.current.hatch = false }}
-              onPointerCancel={() => { input.current.ability = false; input.current.hatch = false }}
+              onPointerUp={releasePointer}
+              onPointerCancel={cancelPointer}
               disabled={!!me?.hatched && (me.cooldown > 0 || !me.alive)}
               aria-label={me?.hatched ? 'Activate ability' : 'Hatch egg'}>
               {me?.hatched ? me.cooldown > 0 ? `${Math.ceil(me.cooldown)}s` : 'SPACE' : 'E'}
@@ -222,37 +200,37 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
           <div className="dpad-ring">
             {/* Up */}
             <button className="dpad-btn dpad-up" aria-label="Move up"
-              onPointerDown={e => dpadDown(e, 0, -1)} onPointerUp={e => dpadUp(e, 0, -1)} onPointerCancel={e => dpadUp(e, 0, -1)}>
+              onPointerDown={e => dpadDown(e, 0, -1)} onPointerUp={releasePointer} onPointerCancel={cancelPointer}>
               ▲
             </button>
             {/* Left */}
             <button className="dpad-btn dpad-left" aria-label="Move left"
-              onPointerDown={e => dpadDown(e, -1, 0)} onPointerUp={e => dpadUp(e, -1, 0)} onPointerCancel={e => dpadUp(e, -1, 0)}>
+              onPointerDown={e => dpadDown(e, -1, 0)} onPointerUp={releasePointer} onPointerCancel={cancelPointer}>
               ◄
             </button>
             <div className="dpad-center" />
             {/* Right */}
             <button className="dpad-btn dpad-right" aria-label="Move right"
-              onPointerDown={e => dpadDown(e, 1, 0)} onPointerUp={e => dpadUp(e, 1, 0)} onPointerCancel={e => dpadUp(e, 1, 0)}>
+              onPointerDown={e => dpadDown(e, 1, 0)} onPointerUp={releasePointer} onPointerCancel={cancelPointer}>
               ►
             </button>
             {/* Down */}
             <button className="dpad-btn dpad-down" aria-label="Move down"
-              onPointerDown={e => dpadDown(e, 0, 1)} onPointerUp={e => dpadUp(e, 0, 1)} onPointerCancel={e => dpadUp(e, 0, 1)}>
+              onPointerDown={e => dpadDown(e, 0, 1)} onPointerUp={releasePointer} onPointerCancel={cancelPointer}>
               ▼
             </button>
           </div>
           <div className="touch-actions">
             <button aria-label="Use ability / hatch"
               onPointerDown={e => touchAction(e, me?.hatched ? 'ability' : 'hatch')}
-              onPointerUp={() => { input.current.ability = false; input.current.hatch = false }}
-              onPointerCancel={() => { input.current.ability = false; input.current.hatch = false }}>
+              onPointerUp={releasePointer}
+              onPointerCancel={cancelPointer}>
               <Sparkles size={15} />
             </button>
             <button className="touch-fire" aria-label="Fire"
               onPointerDown={e => touchAction(e, 'attack')}
-              onPointerUp={() => { input.current.attack = false }}
-              onPointerCancel={() => { input.current.attack = false }}>
+              onPointerUp={releasePointer}
+              onPointerCancel={cancelPointer}>
               🎯 FIRE
             </button>
           </div>
@@ -260,7 +238,7 @@ export function GameArena({ session, server, sound, playerColour, onExit, onRepl
 
         <div className="arena-controls-hint">
           <span><kbd>W A S D</kbd> Move</span>
-          <span><kbd>HOLD CLICK</kbd> Auto-fire (works while moving)</span>
+          <span><kbd>LEFT CLICK</kbd> Tap or hold to fire · automatic aim</span>
           <span><kbd>E</kbd> Hatch egg</span>
           <span><kbd>SPACE</kbd> Ability</span>
           <span><kbd>WASD + SPACE</kbd> Teleport direction</span>
