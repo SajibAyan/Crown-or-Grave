@@ -72,9 +72,13 @@
 .topbar { height: 70px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; padding: 0 36px; }
 .breadcrumb { display: flex; align-items: center; gap: 12px; font-size: 10px; color: #7d867a; }
 .breadcrumb strong { font-weight: 400; color: #c2c7bb; }
-.topbar-title { display: flex; align-items: center; font-size: 14px; white-space: nowrap; }
-.topbar-parent, .topbar-separator { color: #7d867a; font-weight: 400; }
-.topbar-title strong { color: #f3efe5; font-weight: 500; }
+.topbar-title { display: flex; align-items: center; flex-shrink: 0; font-size: 14px; white-space: nowrap; }
+.topbar-trail { display: flex; align-items: center; gap: 12px; list-style: none; margin: 0; padding: 0; }
+.topbar-parent { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: #88947f; font-weight: 400; transition: color .15s; }
+.topbar-parent:hover { color: #f3efe5; }
+.topbar-parent:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 3px; }
+.topbar-separator { display: flex; align-items: center; color: #717b6d; }
+.topbar-current { color: #f3efe5; font-weight: 600; }
 .topbar-right { display: flex; align-items: center; gap: 18px; }
 .topbar-tagline { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; margin-right: 18px; text-align: center; }
 .topbar-chapter { font-size: 8px; letter-spacing: 3px; color: #88947f; text-transform: uppercase; }
@@ -290,6 +294,8 @@
 @media (max-width: 650px) {
   .topbar { height: auto; min-height: 80px; gap: 12px; padding-top: 10px; padding-bottom: 10px; }
   .topbar-title { font-size: 13px; }
+  .topbar-trail { gap: 8px; }
+  .topbar-parent { gap: 6px; }
   .topbar-right { flex: 1; justify-content: flex-end; flex-wrap: wrap; gap: 6px 10px; }
   .topbar-tagline { flex-basis: 100%; margin-right: 0; order: 1; }
   .topbar-chapter { font-size: 7px; letter-spacing: 2px; }

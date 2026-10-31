@@ -116,7 +116,22 @@ export function GameShell() {
 
     <div className="main-wrap">
       <header className="topbar">
-        <span className="topbar-title"><span className="topbar-parent">Play</span><span className="topbar-separator">—</span><strong>The Arena</strong></span>
+        <nav className="topbar-title" aria-label="Breadcrumb">
+          <ol className="topbar-trail">
+            <li>
+              <button className="topbar-parent" onClick={() => navigate('arena')}>
+                <Gamepad2 size={16} strokeWidth={1.6} aria-hidden="true" />
+                <span>Play</span>
+              </button>
+            </li>
+            <li className="topbar-separator" aria-hidden="true">
+              <ChevronRight size={14} strokeWidth={1.6} />
+            </li>
+            <li className="topbar-current" aria-current="page">
+              {section === 'arena' ? 'The Arena' : section === 'abilities' ? 'Abilities' : 'How to play'}
+            </li>
+          </ol>
+        </nav>
         <div className="topbar-right">
           <div className="topbar-tagline">
             <span className="topbar-chapter">The Awakening</span>
