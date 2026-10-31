@@ -37,10 +37,13 @@
 .brand-mark { display: grid; place-items: center; color: var(--primary); width: 34px; height: 42px; }
 .brand-mark svg { width: 36px; height: 40px; }
 .brand small { display: block; font-family: var(--font-inter), sans-serif; font-size: 6.5px; font-weight: 500; letter-spacing: 2px; color: #8a9086; margin-top: -2px; }
-.desktop-brand .brand-copy { min-width: 0; }
-.desktop-brand .brand-title { display: flex; flex-direction: column; align-items: center; gap: 5px; line-height: 1; }
+/* Align the crown to the word stack, not to the subtitle below it. */
+.desktop-brand { display: grid; grid-template-columns: 34px max-content; justify-content: center; column-gap: 10px; row-gap: 10px; }
+.desktop-brand .brand-copy { display: contents; }
+.desktop-brand .brand-mark { grid-column: 1; grid-row: 1; align-self: center; justify-self: center; }
+.desktop-brand .brand-title { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; line-height: 1; }
 .desktop-brand .brand-or { font-size: .5em; letter-spacing: 3px; color: var(--primary); }
-.desktop-brand small { margin-top: 10px; white-space: nowrap; }
+.desktop-brand small { grid-column: 1 / -1; grid-row: 2; justify-self: center; margin-top: 0; text-align: center; white-space: nowrap; }
 .sidebar-nav { margin-top: 57px; }
 .nav-label { font-size: 8px; font-weight: 600; letter-spacing: 1.8px; color: #717b6d; padding: 0 13px; }
 .sidebar nav { display: flex; flex-direction: column; gap: 8px; margin-top: 17px; }
