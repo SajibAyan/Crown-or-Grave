@@ -1,34 +1,58 @@
 import { cooldowns } from './abilities'
+import { SOLO_RIVALS } from './solo-rivals'
 import { canStand, distance, emptyInput, obstacles, WORLD_CX, WORLD_CY, type ArenaState, type GameInput, type Player } from './types'
 
 // Zone shrink rates per map (index = map id)
 const SHRINK_RATES = [2.0, 1.5, 3.2, 2.2, 3.8]
 const SHRINK_START = [25, 30, 18, 24, 15] // when zone starts shrinking
-// Bot shot cooldowns per map (harder = lower)
-const BOT_SHOT_CD = [0.65, 0.7, 0.5, 0.6, 0.48]
-// Bot orbit distances per map
-const BOT_ORBIT = [90, 100, 70, 85, 65]
-// Bot ability trigger threshold per map (lower = more frequent)
-const BOT_ABILITY_THRESH = [0.85, 0.88, 0.75, 0.80, 0.72]
+// Normal solo combat tuning. Each map also has one rival with a distinctive tactic.
+const BOT_SHOT_COOLDOWN = 0.9
+const BOT_ORBIT_DISTANCE = 130
+const BOT_REACTION_TIME = 0.35
+const BOT_AIM_INTERVAL = 0.25
+const BOT_AIM_ERROR = 40
+const BOT_SHOOT_RANGE = 240
+
+type BotReaction = {
+  targetId: string | null
+  readyAt: number
+  nextAimAt: number
+  aimX: number
+  aimY: number
+  observedX: number
+  observedY: number
+  observedAt: number
+  velocityX: number
+  velocityY: number
+}
 
 export class PracticeEngine {
   state: ArenaState
   private projectileId = 0
   private previousInputs = new Map<string, GameInput>()
+  private botReactions = new Map<string, BotReaction>()
   private mapId: number
 
   constructor(name: string, mapId: number = 0) {
     this.mapId = mapId
     const powers = Array.from({ length: 20 }, (_, i) => i)
     for (let i = powers.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [powers[i], powers[j]] = [powers[j], powers[i]] }
-    // If All-Seeing Eye (5) is in the top 5 but Invisibility (2) is not, swap ASE out for Invis
+    const rival = SOLO_RIVALS[mapId] ?? SOLO_RIVALS[0]
+    const rivalPowerIndex = powers.indexOf(rival.ability)
+    ;[powers[1], powers[rivalPowerIndex]] = [powers[rivalPowerIndex], powers[1]]
+    // All-Seeing Eye and Invisibility are a pair: either both are in the
+    // five-player roster or neither is. Preserve the map rival's guaranteed power.
     const top5 = powers.slice(0, 5)
-    if (top5.includes(5) && !top5.includes(2)) {
-      const aseIdx = powers.indexOf(5)
-      const invisIdx = powers.indexOf(2)
-      ;[powers[aseIdx], powers[invisIdx]] = [powers[invisIdx], powers[aseIdx]]
+    const hasEye = top5.includes(5), hasInvisibility = top5.includes(2)
+    if (hasEye !== hasInvisibility) {
+      const missing = hasEye ? 2 : 5
+      const paired = hasEye ? 5 : 2
+      const source = powers.indexOf(missing)
+      // Prefer a normal computer slot; do not replace the rival or the paired power.
+      const destination = [4, 3, 2, 0].find(index => powers[index] !== paired)!
+      ;[powers[destination], powers[source]] = [powers[source], powers[destination]]
     }
-    const names = [name, 'Shadow', 'Wraith', 'Phantom', 'Specter']
+    const names = [name, rival.name, 'Wraith', 'Phantom', 'Specter']
     const players = names.map((n, i): Player => {
       const angle = -Math.PI / 2 + i * Math.PI * 2 / 5
       const x = WORLD_CX + Math.cos(angle) * 225, y = WORLD_CY + Math.sin(angle) * 202
@@ -45,7 +69,7 @@ export class PracticeEngine {
         meteorAt: 0, meteorX: 0, meteorY: 0,
       }
     })
-    this.state = { time: 0, status: 'playing', players, projectiles: [], effects: [], winner: null, radius: 382, events: ['Five enter. One remains.'] }
+    this.state = { time: 0, status: 'playing', players, projectiles: [], effects: [], winner: null, radius: 382, events: [`${rival.name}: ${rival.hint}`, 'Five enter. One remains.'] }
   }
 
   event(text: string) { this.state.events = [text, ...this.state.events].slice(0, 4) }
@@ -111,7 +135,7 @@ export class PracticeEngine {
         if (input.attack && p.shotCooldown <= 0) {
           const angle = Math.atan2(input.aimY - p.y, input.aimX - p.x)
           const dmg = p.berserkerUntil > s.time ? 24 : 16
-          const cd = p.berserkerUntil > s.time ? 0.18 : (p.bot ? (BOT_SHOT_CD[this.mapId] ?? 0.65) : 0.35)
+          const cd = p.bot ? BOT_SHOT_COOLDOWN * (p.berserkerUntil > s.time ? 0.5 : 1) : (p.berserkerUntil > s.time ? 0.18 : 0.35)
           s.projectiles.push({ id: this.projectileId++, owner: p.id, x: p.x + Math.cos(angle) * 20, y: p.y + Math.sin(angle) * 20, vx: Math.cos(angle) * 420, vy: Math.sin(angle) * 420, life: 1.4, damage: dmg })
           p.shotCooldown = cd
           p.invisibleUntil = 0
@@ -277,55 +301,220 @@ export class PracticeEngine {
 
   botInput(p: Player): GameInput {
     const s = this.state
-    const mid = this.mapId
+    const rival = p.id === 'bot-1' ? (SOLO_RIVALS[this.mapId] ?? SOLO_RIVALS[0]) : null
+    // Nearest-opponent targeting applies from the first fight onward, equally to
+    // humans and computers. Rival personalities never override this selection.
+    const target = s.players
+      .filter(o => o.id !== p.id && o.alive && o.visible &&
+        (o.invisibleUntil <= s.time || (p.revealUntil > s.time && distance(p, o) < 200)))
+      .sort((a, b) => distance(p, a) - distance(p, b))[0]
 
-    // Prioritise human player as target, fallback to nearest bot
-    const humanPlayer = s.players.find(o => o.id === 'you' && o.alive && (o.invisibleUntil <= s.time || p.revealUntil > s.time))
-    const allTargets = s.players.filter(o => o.id !== p.id && o.alive && (o.invisibleUntil <= s.time || (p.revealUntil > s.time && distance(p, o) < 200)))
-    const target = (humanPlayer && allTargets.includes(humanPlayer)) ? humanPlayer : allTargets.sort((a, b) => distance(p, a) - distance(p, b))[0]
+    const phase = s.players.indexOf(p) * 1.8
+    let reaction = this.botReactions.get(p.id)
+    if (!reaction || reaction.targetId !== (target?.id ?? null)) {
+      reaction = {
+        targetId: target?.id ?? null, readyAt: s.time + BOT_REACTION_TIME,
+        nextAimAt: 0, aimX: p.x, aimY: p.y,
+        observedX: target?.x ?? p.x, observedY: target?.y ?? p.y,
+        observedAt: s.time, velocityX: 0, velocityY: 0,
+      }
+      this.botReactions.set(p.id, reaction)
+    }
 
-    const orbitDist = BOT_ORBIT[mid] ?? 90
+    const targetDistance = target ? distance(p, target) : Infinity
+    const seesTarget = !!target && this.botCanSee(p, target)
+    const aware = s.time > 5 && p.hatched && seesTarget && s.time >= reaction.readyAt
+    const insideSafeZone = distance(p, { x: WORLD_CX, y: WORLD_CY }) <= s.radius - 55
+    const orbitDist = rival?.orbit ?? BOT_ORBIT_DISTANCE
+    // Awareness is of visible opponents and approaching projectiles, never a
+    // hidden global signal about the human player.
+    const threat = s.projectiles
+      .filter(b => {
+        if (b.owner === p.id) return false
+        const speedSquared = b.vx * b.vx + b.vy * b.vy
+        if (speedSquared === 0) return false
+        const t = ((p.x - b.x) * b.vx + (p.y - b.y) * b.vy) / speedSquared
+        return t > 0 && t < Math.min(0.6, b.life) &&
+          Math.hypot(b.x + b.vx * t - p.x, b.y + b.vy * t - p.y) < 34 &&
+          this.botCanSee(p, b)
+      })
+      .sort((a, b) => distance(p, a) - distance(p, b))[0]
     let dx = 0, dy = 0
 
     if (!p.hatched) {
       dx = p.eggX - p.x; dy = p.eggY - p.y
-    } else if (distance(p, { x: WORLD_CX, y: WORLD_CY }) > s.radius - 55 || !target) {
-      // Always flee to centre when near zone edge
+    } else if (!insideSafeZone || !target) {
+      // Survival and hatching always take priority over a personality's tactic.
       dx = WORLD_CX - p.x; dy = WORLD_CY - p.y
     } else {
-      const d = distance(p, target)
       const angle = Math.atan2(target.y - p.y, target.x - p.x)
-      const orbit = Math.sin(s.time * (mid === 3 ? 1.5 : 0.8) + Number(p.id.slice(-1)) * 1.8)
+      const ordinaryOrbit = Math.sin(s.time * 0.8 + phase)
+      // The dodger and stalker keep a deliberate sideways motion instead of
+      // repeatedly pausing at the centre of an ordinary bot's strafe cycle.
+      const orbit = rival?.kind === 'dodger' || rival?.kind === 'stalker'
+        ? (Math.sin(s.time * 0.65 + phase) >= 0 ? 1 : -1)
+        : ordinaryOrbit
+      const retreating = rival?.kind === 'phoenix' && p.hp <= 55 && aware
+      const tooClose = retreating ? 165 : rival?.kind === 'artillery' ? 135 : 65
 
-      if (d > orbitDist + 40) {
-        // Chase
+      if (targetDistance > orbitDist + 40) {
         dx = Math.cos(angle) * 0.85 + Math.cos(angle + Math.PI / 2) * orbit * 0.25
         dy = Math.sin(angle) * 0.85 + Math.sin(angle + Math.PI / 2) * orbit * 0.25
-      } else if (d < 65) {
-        // Back away
-        dx = -Math.cos(angle)
-        dy = -Math.sin(angle)
+      } else if (targetDistance < tooClose) {
+        dx = -Math.cos(angle); dy = -Math.sin(angle)
       } else {
-        // Strafe around target
         dx = Math.cos(angle + Math.PI / 2) * orbit + Math.cos(angle) * 0.1
         dy = Math.sin(angle + Math.PI / 2) * orbit + Math.sin(angle) * 0.1
+      }
+
+      // Tactics change with the fight, rather than making every rival kite.
+      // These only change movement around the SAME nearest opponent.
+      if (aware) {
+        const side = Math.sin(s.time * 0.65 + phase) >= 0 ? 1 : -1
+        const steer = (forward: number, sideways: number) => {
+          dx = Math.cos(angle) * forward + Math.cos(angle + Math.PI / 2) * sideways
+          dy = Math.sin(angle) * forward + Math.sin(angle + Math.PI / 2) * sideways
+        }
+        if (rival) {
+          switch (rival.kind) {
+            case 'dodger':
+              // Zigzag into a fight, then circle; incoming shots can interrupt to dodge.
+              if (targetDistance > 70) steer(targetDistance > 170 ? 0.75 : 0.15, Math.sin(s.time * 3.2 + phase) >= 0 ? 0.95 : -0.95)
+              break
+            case 'phoenix':
+              // Retreat only while hurt. Re-engage after healing, and push during
+              // the brief protection granted by an actual Phoenix revival.
+              if (p.invulnerableUntil > s.time && p.revives > 0 && targetDistance > 70) steer(0.95, 0.15 * side)
+              else if (p.hp > 70 && targetDistance > 100) steer(0.7, 0.35 * side)
+              break
+            case 'artillery':
+              // Cast, sidestep while the marker counts down, then move forward
+              // during the cooldown instead of staying at long range all match.
+              if (p.meteorAt > s.time) steer(0.1, 0.95 * side)
+              else if (p.cooldown > 0 && targetDistance > 115) steer(0.7, 0.4 * side)
+              break
+            case 'warden':
+              // Armor is an opportunity to advance, not another reason to flee.
+              if (p.ironSkinUntil > s.time && targetDistance > 55) steer(0.95, 0.1 * side)
+              else if (p.hp > 55 && targetDistance > 120) steer(0.65, 0.2 * side)
+              break
+            case 'stalker':
+              // Close in under cover of invisibility for an ambush; flank while visible.
+              if (p.invisibleUntil > s.time) steer(targetDistance > 75 ? 0.9 : 0, 0.35 * side)
+              else if (targetDistance > 135) steer(0.35, 0.85 * side)
+              break
+          }
+        } else {
+          // Ordinary computers have different movement styles too, without
+          // faster reactions, extra health, or more accurate aim.
+          switch (s.players.indexOf(p) % 3) {
+            case 2: // Pressure: move into the fight.
+              if (targetDistance > 95) steer(0.8, 0.2 * ordinaryOrbit)
+              break
+            case 0: // Flanker: alternate side approaches with short pushes.
+              if (targetDistance > 85) steer((s.time + phase) % 4 < 1.2 ? 0.75 : 0.2, 0.85 * side)
+              break
+            case 1: // Cautious: retreat when hurt, return when healthy.
+              if (p.hp < 40 && targetDistance < 165) steer(-0.85, 0.3 * side)
+              else if (p.hp >= 40 && targetDistance > 120) steer(0.65, 0.35 * side)
+              break
+          }
+        }
+      }
+
+      if (rival && aware && threat &&
+        (rival.kind === 'dodger' || rival.kind === 'phoenix' || rival.kind === 'stalker')) {
+        const speed = Math.max(1, Math.hypot(threat.vx, threat.vy))
+        const sideX = -threat.vy / speed, sideY = threat.vx / speed
+        // Try both sides; do not dodge blindly into a wall.
+        for (const side of [1, -1]) {
+          const dodgeX = dx * 0.25 + sideX * side
+          const dodgeY = dy * 0.25 + sideY * side
+          const length = Math.max(1, Math.hypot(dodgeX, dodgeY))
+          if (canStand(p.x + dodgeX / length * 30, p.y + dodgeY / length * 30)) {
+            dx = dodgeX; dy = dodgeY; break
+          }
+        }
       }
     }
 
     const len = Math.max(1, Math.hypot(dx, dy)); dx /= len; dy /= len
     if (!canStand(p.x + dx * 30, p.y + dy * 30)) { const turn = s.time % 8 < 4 ? 1 : -1; [dx, dy] = [-dy * turn, dx * turn] }
 
-    // Aiming — harder maps aim more accurately
-    const noise = mid === 4 ? 10 : mid === 2 ? 14 : mid === 0 ? 22 : 18
-    const aimX = (target?.x ?? WORLD_CX) + Math.sin(s.time * 3.2 + p.x) * noise
-    const aimY = (target?.y ?? WORLD_CY) + Math.cos(s.time * 2.5 + p.y) * noise
+    // Sample only observed movement; bots cannot track through ruins or invisibility.
+    if (target && seesTarget && s.time >= reaction.nextAimAt) {
+      const elapsed = s.time - reaction.observedAt
+      if (elapsed > 0) {
+        const vx = (target.x - reaction.observedX) / elapsed
+        const vy = (target.y - reaction.observedY) / elapsed
+        const scale = Math.max(1, Math.hypot(vx, vy) / 130)
+        reaction.velocityX = vx / scale; reaction.velocityY = vy / scale
+      }
+      reaction.observedX = target.x; reaction.observedY = target.y; reaction.observedAt = s.time
+      reaction.aimX = target.x + Math.sin(s.time * 2.1 + phase) * BOT_AIM_ERROR
+      reaction.aimY = target.y + Math.cos(s.time * 1.7 + phase) * BOT_AIM_ERROR
+      reaction.nextAimAt = s.time + BOT_AIM_INTERVAL
+    }
 
-    const shootRange = mid === 4 ? 290 : mid === 2 ? 270 : 240
-    const attack = s.time > 5 && !!target && distance(p, target) < shootRange
+    const engaged = aware && targetDistance < BOT_SHOOT_RANGE
+    const burstTime = (s.time + phase) % 2.2
+    let attack = engaged && burstTime < 1.3
+    let ability = engaged && p.cooldown <= 0 && Math.sin(s.time * 1.4 + phase) > 0.92
+    let aimX = reaction.aimX, aimY = reaction.aimY
 
-    const abilityThresh = BOT_ABILITY_THRESH[mid] ?? 0.85
-    const ability = p.cooldown <= 0 && Math.sin(s.time * 5 + p.x) > abilityThresh
+    // Eye users can scan when nearby opponents disappear, instead of requiring
+    // an already-visible target to reveal an invisible one. This uses only the
+    // absence of a visible nearby target, not the hidden opponent's coordinates.
+    if (p.ability === 5 && p.hatched && s.time > 5 && p.cooldown <= 0) {
+      ability = (engaged || targetDistance > 200) && Math.sin(s.time * 1.4 + phase) > 0.5
+    }
+
+    if (rival && p.hatched && s.time > 5 && p.cooldown <= 0) {
+      // Guard on ability too, so a changed/copied power cannot trigger the wrong tactic.
+      switch (rival.kind) {
+        case 'dodger':
+          if (p.ability === 0) ability = aware && insideSafeZone && (!!threat || targetDistance < 100)
+          break
+        case 'phoenix':
+          if (p.ability === 7) ability = p.hp <= 75
+          break
+        case 'artillery':
+          if (p.ability === 15) {
+            ability = engaged && p.meteorAt === 0
+            if (ability) {
+              // A modest prediction, not a perfect lock-on. The existing 0.8s
+              // ground warning still gives either kind of opponent time to dodge.
+              aimX = Math.max(16, Math.min(734, reaction.aimX + reaction.velocityX * 0.35))
+              aimY = Math.max(16, Math.min(509, reaction.aimY + reaction.velocityY * 0.35))
+              attack = false
+            }
+          }
+          break
+        case 'warden':
+          if (p.ability === 18) ability = aware && (!!threat || p.hp <= 55)
+          break
+        case 'stalker':
+          if (p.ability === 2) ability = engaged && p.invisibleUntil <= s.time && (targetDistance > 100 || p.hp <= 55)
+          break
+      }
+    }
+    // Any invisibility user gets time to reposition instead of cancelling its
+    // own power with a shot on the activation frame. The stalker also waits to
+    // get close for its ambush, unless its invisibility is about to expire.
+    if (p.ability === 2 && (ability || p.invisibleUntil - s.time > 5.2)) attack = false
+    if (rival?.kind === 'stalker' && p.ability === 2 &&
+      p.invisibleUntil - s.time > 1 && targetDistance > 115) attack = false
 
     return { dx, dy, aimX, aimY, attack, hatch: true, ability, cycle: false }
+  }
+
+  private botCanSee(from: { x: number; y: number }, to: { x: number; y: number }) {
+    const steps = Math.max(1, Math.ceil(distance(from, to) / 10))
+    for (let i = 1; i < steps; i++) {
+      const x = from.x + (to.x - from.x) * i / steps
+      const y = from.y + (to.y - from.y) * i / steps
+      if (obstacles.some(o => x > o.x && x < o.x + o.w && y > o.y && y < o.y + o.h)) return false
+    }
+    return true
   }
 }
