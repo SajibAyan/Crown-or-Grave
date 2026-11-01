@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   authors: [{ name: 'Sajib Ayan' }],
   creator: 'Sajib Ayan',
   generator: 'Next.js',
+  verification: {
+    google: '87tN-5G3ebml2KZWvKgF75MPxKWkgrTiC2M7A1K9fIY',
+  },
   icons: {
     icon: [
       { url: '/icon-light-32x32.png', media: '(prefers-color-scheme: light)' },
